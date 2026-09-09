@@ -1,5 +1,6 @@
 package com.sabimoni.core.data.model
 
+import com.sabimoni.core.data.entity.Direction
 import com.sabimoni.core.data.entity.GroupType
 import com.sabimoni.core.data.entity.MessageSource
 import com.sabimoni.core.data.entity.ParseStatus
@@ -18,6 +19,16 @@ data class CapturedMessage(
     val sentAt: Instant,
     val status: ParseStatus,
     val failureReason: String?,
+    /** What the parser understood, empty until the message has been parsed (FR1.3). */
+    val lineItems: List<ParsedLine> = emptyList(),
+)
+
+data class ParsedLine(
+    val id: Long,
+    val amount: Money,
+    val direction: Direction,
+    val category: String?,
+    val note: String?,
 )
 
 data class MoneyGroup(

@@ -32,3 +32,4 @@ not the decision — that's visible in the code — but the *reasoning* and the
 | [0014](0014-single-application-id.md) | One applicationId across all variants | Accepted |
 | [0015](0015-offline-capture-parse-queue.md) | Capture never blocks on network; parsing queues | Accepted |
 | [0016](0016-gemini-as-primary-ai-provider.md) | Gemini (Google AI Studio) as the primary AI provider | Accepted |
+| [0017](0017-parse-worker-and-failure-policy.md) | Parse worker, retry policy, and what the model may create | Accepted |

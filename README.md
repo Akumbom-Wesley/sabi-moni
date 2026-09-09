@@ -12,6 +12,7 @@ It is a mirror, not a budget enforcer.
 
 - Full product spec: [`product-brief-mvp-spec.md`](product-brief-mvp-spec.md)
 - Architecture decisions: [`docs/adr/`](docs/adr/README.md)
+- Build order and what is next: [`docs/sprint-plan.md`](docs/sprint-plan.md)
 
 ## Shape of it
 

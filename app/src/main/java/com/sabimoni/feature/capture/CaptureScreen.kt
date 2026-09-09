@@ -29,9 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sabimoni.core.data.entity.Direction
 import com.sabimoni.core.data.entity.MessageSource
 import com.sabimoni.core.data.entity.ParseStatus
 import com.sabimoni.core.data.model.CapturedMessage
+import com.sabimoni.core.data.model.ParsedLine
+import com.sabimoni.core.money.format
 
 @Composable
 fun CaptureScreen(viewModel: CaptureViewModel = hiltViewModel()) {
@@ -116,15 +119,47 @@ private fun MessageCard(message: CapturedMessage) {
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            message.lineItems.forEach { line -> ParsedLineRow(line) }
         }
     }
 }
+
+/** One thing the parser understood, as its own line — the confirmation of FR1.3. */
+@Composable
+private fun ParsedLineRow(line: ParsedLine) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = line.signedAmount(),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        Text(
+            text = line.describe(),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+private fun ParsedLine.signedAmount(): String {
+    val sign = if (direction == Direction.EXPENSE) "-" else "+"
+    return sign + amount.format()
+}
+
+private fun ParsedLine.describe(): String =
+    listOfNotNull(category, note).joinToString(" · ").ifEmpty { "uncategorised" }
 
 private fun statusLabel(message: CapturedMessage): String {
     val prefix = if (message.source == MessageSource.SMS) "MoMo SMS · " else ""
     return prefix + when (message.status) {
         ParseStatus.PENDING_PARSE -> "waiting to be interpreted"
-        ParseStatus.PARSED -> "interpreted"
+        ParseStatus.PARSED -> when (val count = message.lineItems.size) {
+            0 -> "nothing to log here"
+            1 -> "understood 1 entry"
+            else -> "understood $count entries"
+        }
         ParseStatus.FAILED -> message.failureReason ?: "could not be interpreted"
     }
 }

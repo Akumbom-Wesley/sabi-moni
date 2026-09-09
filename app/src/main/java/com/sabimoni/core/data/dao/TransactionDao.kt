@@ -16,6 +16,16 @@ data class CategoryTotal(
     val totalXaf: Long,
 )
 
+/** One parsed line, joined to its category name for display in the capture thread. */
+data class MessageLineItem(
+    val messageId: Long,
+    val transactionId: Long,
+    val amountXaf: Long,
+    val direction: Direction,
+    val categoryName: String?,
+    val note: String?,
+)
+
 @Dao
 interface TransactionDao {
 
@@ -48,6 +58,22 @@ interface TransactionDao {
             "WHERE direction = :direction AND occurredOn BETWEEN :from AND :to",
     )
     fun observeTotal(direction: Direction, from: LocalDate, to: LocalDate): Flow<Long>
+
+    @Query(
+        """
+        SELECT t.messageId AS messageId,
+               t.id AS transactionId,
+               t.amountXaf AS amountXaf,
+               t.direction AS direction,
+               c.name AS categoryName,
+               t.note AS note
+        FROM transactions t
+        LEFT JOIN categories c ON c.id = t.categoryId
+        WHERE t.messageId IS NOT NULL
+        ORDER BY t.id ASC
+        """,
+    )
+    fun observeLineItems(): Flow<List<MessageLineItem>>
 
     @Query(
         """
