@@ -9,8 +9,8 @@ The spec gives an ordering, not a plan. This file is the plan: what each sprint
 delivers, what "done" means, and what is deliberately not in it yet. Update the status
 table and tick the boxes as work lands — this is the file that answers "what's next".
 
-**State as of:** 2026-09-09 · scaffold complete (`3b7c792`), running on the Pixel 6
-daily driver, Gemini key stored.
+**State as of:** 2026-09-10 · capture loop closed (`f663bab`), the day is editable, running
+on the Pixel 6 daily driver, Gemini key stored.
 
 ---
 
@@ -20,8 +20,8 @@ daily driver, Gemini key stored.
 |---|---|---|---|
 | 0 | Scaffold | — | Done |
 | 1 | Close the capture loop | FR1.3, FR2.1–2.6 | ✅ Done |
-| 2 | Make the day usable | FR1.4, FR1.5, FR1.6 | ▶ **Next** |
-| 3 | Groups | FR4.1–4.6 | Not started |
+| 2 | Make the day usable | FR1.4, FR1.5, FR1.6 | ✅ Done (group field deferred) |
+| 3 | Groups | FR4.1–4.6 | ▶ **Next** |
 | 4 | Reports | FR5.1–5.4 | Not started |
 | 5 | Savings | FR6.1–6.3 | Not started |
 | 6 | MoMo SMS auto-detect | FR3.1–3.3 | Not started |
@@ -100,25 +100,113 @@ Sprint 3.
 
 ---
 
-## Sprint 2 — Make the day usable
+## Sprint 2 — Make the day usable ✅ DONE
 
 **Goal:** the 5-minute nightly ritual works end to end without a keyboard fight.
 
-- FR1.4 — each parsed line tappable to correct amount, category, group, direction
+- FR1.4 — each parsed line tappable to correct amount, category, direction, date
 - FR1.5 — "today" view with a running total
 - FR1.6 — manual form entry as a fallback
 
 ### Tasks
 
-- [ ] Editable parsed-line component with inline correction, no re-typing the message
-- [ ] Running total for today in `CaptureUiState`, wired to `observeForDay`
-- [ ] Manual entry form (amount, direction, category, group, date)
-- [ ] Corrections persist without re-parsing — v1 corrections are taps, not dialogue (§6)
+- [x] `EntryEditorDialog` — one editor for both correcting a parsed line and adding one by
+      hand, so a manual entry is fixable by the same tap as a parsed one
+- [x] Editing behind a pencil button on each entry; the raw message is never re-typed, and
+      a tap on the row itself does nothing (ADR-0019)
+- [x] The editor opens pre-filled from the parse, amount already grouped (`12 500`)
+- [x] Long-press anywhere on a card to select everything on it, checkboxes replace the
+      pencils, contextual bar in place of the summary; a selection deletes in one statement
+      so the total recalculates once
+- [x] The note never restates the amount — prompt rule plus `stripRestatedAmount` at the
+      parse boundary, so correcting an amount cannot leave the note contradicting it
+      (ADR-0020)
+- [x] Confirmation on a bulk delete — a long-press plus a tap can select several rows and
+      there is no undo
+- [x] Running total for today in `CaptureUiState`, wired to `observeForDay`
+- [x] Balance (income minus expense over everything logged) as the screen's headline
+      figure, today's net beneath it, and only one "Today" on screen (ADR-0022)
+- [x] Bounded retries and a visible wait: a repeating failure reaches a `FAILED` message
+      with a reason in ~2 min instead of retrying invisibly for hours; a pending message
+      says *why* it is still waiting and offers "Try now" (ADR-0021)
+- [x] Light/dark/system theme choice in Settings, persisted (ADR-0023)
+- [x] System bar icon contrast follows the app's theme, not the phone's dark-mode setting —
+      forcing Light on a dark-mode phone was hiding the clock and battery (ADR-0024)
+- [x] Thread redesign: a right-aligned bubble for what was sent, a left-aligned reply card
+      for what the app understood, ledger-style entry rows, centred day chips (ADR-0024)
+- [x] `surfaceContainer*` and outline roles defined explicitly, so the non-dynamic palette
+      (the `public` flavour, pre-Android-12) is coherent rather than baseline purple
+- [x] Manual entry form (amount, direction, category, date, note)
+- [x] Manual entries appear in the thread as `ThreadItem.Manual`, interleaved by time —
+      an entry invisible where you logged it reads as a lost entry
+- [x] Day separators in the thread, so "today" is legible in a thread holding every day
+- [x] Corrections persist without re-parsing — v1 corrections are taps, not dialogue (§6)
+- [x] Correction is one targeted UPDATE of five fields, so `messageId`, `createdAt` and
+      `autoDetected` cannot be rewritten by a correction (ADR-0018)
+- [x] **"Try again" on a FAILED message** — the dead end ADR-0017 left open. Guarded on
+      `status = 'FAILED'` in SQL so a double tap cannot re-parse a parsed message
+- [x] `parseMoney` — no decimal point, separators ignored (XAF has no minor unit)
+- [x] Date chips single-line and short, so the row cannot wrap
+- [x] Tests: 16 new JVM (`MoneyTest` 6, `NoteHygieneTest` 10), 31 JVM total passing; both
+      flavors build
+- [x] Instrumented: `TransactionRepositoryEditingTest` (16), `CaptureRepositoryTest` (7)
+      and one added to `TransactionRepositoryTest` (8) — written and compiling, **not yet
+      run**, see below
+- [ ] Run the 31 instrumented tests — on an emulator, not the daily driver
+- [ ] On-device acceptance run
+
+### Deferred out of this sprint
+
+**The group field on the editor (part of FR1.4).** `TransactionEntity` can only reference a
+`GroupContributionEntity`, not a `GroupEntity`. Attaching a group today would mean
+fabricating a contribution — an obligation with a due date and penalty nobody announced —
+from a user who was only fixing a category. Sprint 3 owns that schema decision, and group
+correction lands with it. Reasoning in
+[ADR-0018](adr/0018-corrections-and-manual-entry.md); a disabled picker was rejected too.
+
+**Category management.** The editor picks from existing categories plus "Uncategorised" and
+cannot create one, keeping ADR-0017's rule intact on the human path. Add/rename/archive is
+its own feature, not a side effect of fixing an amount at 11pm.
 
 ### Done when
 
 A wrong parse can be fixed in two taps, and the day's total is visible without leaving
-the capture tab.
+the capture tab. — Met in code; awaiting the test and acceptance runs.
+
+### Decisions taken
+
+[ADR-0018](adr/0018-corrections-and-manual-entry.md): one editor for both jobs, a
+correction as a five-field UPDATE that cannot rewrite provenance, no re-parse after a
+correction, manual entries as first-class thread items, the SQL-guarded retry, and — the
+one with lasting consequences — **"today" is resolved per subscription and deliberately
+does not roll over while the screen is open**, so the total cannot empty itself mid-ritual
+at 23:59.
+
+[ADR-0019](adr/0019-explicit-edit-affordance-and-multi-select-delete.md), written after
+using the first version on the device: editing moves to an explicit button because the
+thread is mostly something you *read* and a stray tap should cost nothing; delete becomes a
+long-press multi-select, because a bad parse goes wrong in bulk and the unit of the fix
+should match the unit of the mistake. It supersedes ADR-0018's tap-target and
+delete-affordance decisions; the rest of 0018 stands.
+
+[ADR-0020](adr/0020-the-amount-is-a-field-not-prose.md), also from device use: the model was
+restating the amount inside the note, so correcting 1600 to 1500 left the note asserting
+1600. The fix is not to rewrite notes on correction but to stop storing the amount twice —
+prompt rule plus boundary enforcement, on the ADR-0017 principle that an invariant the
+model has to cooperate with is not an invariant.
+
+[ADR-0021](adr/0021-bounded-retries-and-visible-waiting.md): a message waited five minutes
+saying only "waiting to be interpreted". Nothing was stuck — the worker was failing and
+retrying behind a backoff that had grown to two minutes and was doubling, and the transient
+branch logged *nothing*. Retries are now bounded by attempts that actually reached the
+network (so ADR-0015's offline promise is untouched), the reason is shown while pending, and
+the user can skip the backoff.
+
+[ADR-0022](adr/0022-balance-as-the-headline.md) and
+[ADR-0023](adr/0023-theme-choice-in-settings.md): the screen said "Today" twice, which was a
+symptom of the summary answering the smaller of the two available questions. Balance is now
+the headline, labelled as derived from what has been logged. Plus a light/dark/system choice
+in Settings, on the DataStore that already existed.
 
 ---
 
@@ -142,6 +230,10 @@ reminders and history are unbuilt.
 - [ ] **Runtime `POST_NOTIFICATIONS` request** — currently never requested anywhere
 - [ ] Owed-across-all-groups view, and a per-group history screen
 - [ ] Paying a contribution writes the linked transaction
+- [ ] **Decide how a transaction references a group** — a group, a contribution, or both.
+      This is the schema decision ADR-0017 and ADR-0018 both defer to; it needs a
+      migration off version 1
+- [ ] Add the group field to `EntryEditorDialog`, completing FR1.4, once that lands
 
 ### Done when
 

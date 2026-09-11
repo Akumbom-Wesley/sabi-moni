@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sabimoni.core.settings.ThemeChoice
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
@@ -33,6 +35,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         state = state,
         onSaveApiKey = viewModel::saveApiKey,
         onClearApiKey = viewModel::clearApiKey,
+        onSetTheme = viewModel::setTheme,
     )
 }
 
@@ -41,6 +44,7 @@ private fun SettingsContent(
     state: SettingsUiState,
     onSaveApiKey: (String) -> Unit,
     onClearApiKey: () -> Unit,
+    onSetTheme: (ThemeChoice) -> Unit,
 ) {
     // Never seeded from the stored key — it is write-only from the UI's perspective.
     var keyInput by remember { mutableStateOf("") }
@@ -55,6 +59,23 @@ private fun SettingsContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(text = "Settings", style = MaterialTheme.typography.headlineSmall)
+
+        Text(text = "Appearance", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = "System follows your phone's light and dark setting.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ThemeChoice.entries.forEach { choice ->
+                FilterChip(
+                    selected = state.theme == choice,
+                    onClick = { onSetTheme(choice) },
+                    label = { Text(choice.label, maxLines = 1, softWrap = false) },
+                )
+            }
+        }
+
+        HorizontalDivider()
 
         Text(text = "AI parsing key", style = MaterialTheme.typography.titleMedium)
         Text(
@@ -103,3 +124,11 @@ private fun SettingsContent(
         )
     }
 }
+
+/** Kept next to the chips rather than on the enum: this is wording, not domain. */
+private val ThemeChoice.label: String
+    get() = when (this) {
+        ThemeChoice.SYSTEM -> "System"
+        ThemeChoice.LIGHT -> "Light"
+        ThemeChoice.DARK -> "Dark"
+    }

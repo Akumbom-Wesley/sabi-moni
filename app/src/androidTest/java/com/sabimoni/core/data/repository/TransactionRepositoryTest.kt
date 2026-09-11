@@ -131,6 +131,20 @@ class TransactionRepositoryTest {
     }
 
     @Test
+    fun commitParse_keepsTheAmountOutOfTheNote() = runTest {
+        val message = pendingMessage("Sendt 1600 to my girlfriend")
+
+        repository.commitParse(
+            message,
+            listOf(draft(amountXaf = 1600, note = "sent 1600 to my girlfriend")),
+        )
+
+        // Two copies of the amount diverge the moment one is corrected (ADR-0020).
+        val written = database.transactionDao().observeForMessage(message.id).first()
+        assertThat(written.single().note).isEqualTo("sent to my girlfriend")
+    }
+
+    @Test
     fun commitParse_keepsAnExplicitDateFromTheParser() = runTest {
         val yesterday = today.minusDays(1)
         val message = pendingMessage("yesterday I spent 300 on bread")

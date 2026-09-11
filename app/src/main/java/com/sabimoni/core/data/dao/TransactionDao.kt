@@ -8,6 +8,7 @@ import androidx.room.Upsert
 import com.sabimoni.core.data.entity.Direction
 import com.sabimoni.core.data.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
+import java.time.Instant
 import java.time.LocalDate
 
 data class CategoryTotal(
@@ -16,14 +17,22 @@ data class CategoryTotal(
     val totalXaf: Long,
 )
 
-/** One parsed line, joined to its category name for display in the capture thread. */
-data class MessageLineItem(
-    val messageId: Long,
-    val transactionId: Long,
+/**
+ * One logged entry joined to its category name — the shape the capture thread and the
+ * editor both need. `messageId` is null for a manually entered row (FR1.6), which is what
+ * distinguishes a standalone entry from a line the parser produced.
+ */
+data class TransactionRow(
+    val id: Long,
+    val messageId: Long?,
+    val occurredOn: LocalDate,
     val amountXaf: Long,
     val direction: Direction,
+    val categoryId: Long?,
     val categoryName: String?,
     val note: String?,
+    val autoDetected: Boolean,
+    val createdAt: Instant,
 )
 
 @Dao
@@ -40,6 +49,43 @@ interface TransactionDao {
 
     @Delete
     suspend fun delete(transaction: TransactionEntity)
+
+    /**
+     * Deletes a whole selection in one statement, so observers — the running total above
+     * all — see one change rather than counting down one entry at a time.
+     */
+    @Query("DELETE FROM transactions WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
+    /**
+     * A correction (FR1.4) may change only these five fields. Written as one targeted
+     * UPDATE rather than a read-modify-write so that `messageId`, `createdAt` and
+     * `autoDetected` cannot be rewritten by accident: how an entry arrived is history, not
+     * something a correction is allowed to edit. See
+     * docs/adr/0018-corrections-and-manual-entry.md.
+     */
+    @Query(
+        """
+        UPDATE transactions
+        SET amountXaf = :amountXaf,
+            direction = :direction,
+            categoryId = :categoryId,
+            note = :note,
+            occurredOn = :occurredOn
+        WHERE id = :id
+        """,
+    )
+    suspend fun applyCorrection(
+        id: Long,
+        amountXaf: Long,
+        direction: Direction,
+        categoryId: Long?,
+        note: String?,
+        occurredOn: LocalDate,
+    )
+
+    @Query("SELECT * FROM transactions WHERE id = :id")
+    suspend fun byId(id: Long): TransactionEntity?
 
     @Query("SELECT * FROM transactions WHERE occurredOn = :day ORDER BY createdAt ASC")
     fun observeForDay(day: LocalDate): Flow<List<TransactionEntity>>
@@ -59,21 +105,42 @@ interface TransactionDao {
     )
     fun observeTotal(direction: Direction, from: LocalDate, to: LocalDate): Flow<Long>
 
+    /**
+     * Everything ever logged, income minus expense.
+     *
+     * Summed in SQL rather than over a list of rows, because unlike the day total this one
+     * grows without bound. It is only as true as what has been entered, which is why the
+     * screen labels where it comes from rather than claiming to know a real account
+     * balance.
+     */
+    @Query(
+        "SELECT COALESCE(SUM(CASE WHEN direction = 'INCOME' THEN amountXaf ELSE -amountXaf END), 0) " +
+            "FROM transactions",
+    )
+    fun observeBalance(): Flow<Long>
+
+    /**
+     * Every logged entry, parser-produced and manual alike. One query rather than two so
+     * the thread cannot be assembled from two lists that disagree about the same row.
+     */
     @Query(
         """
-        SELECT t.messageId AS messageId,
-               t.id AS transactionId,
+        SELECT t.id AS id,
+               t.messageId AS messageId,
+               t.occurredOn AS occurredOn,
                t.amountXaf AS amountXaf,
                t.direction AS direction,
+               t.categoryId AS categoryId,
                c.name AS categoryName,
-               t.note AS note
+               t.note AS note,
+               t.autoDetected AS autoDetected,
+               t.createdAt AS createdAt
         FROM transactions t
         LEFT JOIN categories c ON c.id = t.categoryId
-        WHERE t.messageId IS NOT NULL
         ORDER BY t.id ASC
         """,
     )
-    fun observeLineItems(): Flow<List<MessageLineItem>>
+    fun observeRows(): Flow<List<TransactionRow>>
 
     @Query(
         """

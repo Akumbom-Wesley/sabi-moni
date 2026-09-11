@@ -11,6 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+/**
+ * The `surfaceContainer*` roles are set explicitly, not left to Material's defaults: the
+ * capture screen layers a thread background, cards and a header on top of each other, and
+ * the baseline containers are purple-cast greys that clash with the green brand ramp.
+ */
 private val LightColors = lightColorScheme(
     primary = Green40,
     onPrimary = Color.White,
@@ -18,11 +23,21 @@ private val LightColors = lightColorScheme(
     onPrimaryContainer = Green40,
     secondary = Sand40,
     secondaryContainer = Sand80,
+    onSecondaryContainer = Neutral10,
     error = Clay40,
-    background = Neutral99,
-    surface = Neutral99,
+    background = Neutral97,
     onBackground = Neutral10,
+    surface = Neutral99,
     onSurface = Neutral10,
+    surfaceVariant = Neutral90,
+    onSurfaceVariant = Neutral40,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Neutral97,
+    surfaceContainer = Neutral95,
+    surfaceContainerHigh = Neutral92,
+    surfaceContainerHighest = Neutral90,
+    outline = Neutral60,
+    outlineVariant = Neutral80,
 )
 
 private val DarkColors = darkColorScheme(
@@ -32,11 +47,21 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = Green90,
     secondary = Sand80,
     secondaryContainer = Sand40,
+    onSecondaryContainer = Neutral95,
     error = Clay80,
     background = Neutral10,
-    surface = Neutral20,
     onBackground = Neutral95,
+    surface = Neutral12,
     onSurface = Neutral95,
+    surfaceVariant = Neutral30,
+    onSurfaceVariant = Neutral80,
+    surfaceContainerLowest = Neutral10,
+    surfaceContainerLow = Neutral12,
+    surfaceContainer = Neutral17,
+    surfaceContainerHigh = Neutral20,
+    surfaceContainerHighest = Neutral24,
+    outline = Neutral60,
+    outlineVariant = Neutral30,
 )
 
 @Composable

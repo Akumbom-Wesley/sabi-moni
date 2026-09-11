@@ -33,3 +33,10 @@ not the decision — that's visible in the code — but the *reasoning* and the
 | [0015](0015-offline-capture-parse-queue.md) | Capture never blocks on network; parsing queues | Accepted |
 | [0016](0016-gemini-as-primary-ai-provider.md) | Gemini (Google AI Studio) as the primary AI provider | Accepted |
 | [0017](0017-parse-worker-and-failure-policy.md) | Parse worker, retry policy, and what the model may create | Accepted |
+| [0018](0018-corrections-and-manual-entry.md) | Corrections, manual entry, and what "today" means | Accepted (tap target and delete affordance superseded by 0019) |
+| [0019](0019-explicit-edit-affordance-and-multi-select-delete.md) | Explicit edit affordance, and delete as a multi-select | Accepted |
+| [0020](0020-the-amount-is-a-field-not-prose.md) | The amount is a field, not prose | Accepted |
+| [0021](0021-bounded-retries-and-visible-waiting.md) | Bounded retries, and a wait you can see | Accepted |
+| [0022](0022-balance-as-the-headline.md) | Balance as the headline, today beneath it | Accepted |
+| [0023](0023-theme-choice-in-settings.md) | A theme the user can choose | Accepted |
+| [0024](0024-system-bars-and-thread-visual-design.md) | System bars, tonal surfaces, and the shape of the thread | Accepted |
