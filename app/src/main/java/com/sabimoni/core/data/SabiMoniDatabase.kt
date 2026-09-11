@@ -1,5 +1,6 @@
 package com.sabimoni.core.data
 
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
@@ -28,8 +29,15 @@ import com.sabimoni.core.data.entity.TransactionEntity
         SavingsGoalEntity::class,
         ReminderEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    /**
+     * v2 adds `transactions.groupId` (ADR-0025). SQLite cannot add a foreign key with
+     * `ALTER TABLE`, so the table has to be recreated and the rows copied — which is
+     * exactly the SQL Room derives from the two exported schemas. Hand-writing that
+     * recreation would be the riskier option against a database holding real money.
+     */
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @TypeConverters(Converters::class)
 abstract class SabiMoniDatabase : RoomDatabase() {

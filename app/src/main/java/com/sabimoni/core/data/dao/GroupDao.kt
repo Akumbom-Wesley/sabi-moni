@@ -24,4 +24,13 @@ interface GroupDao {
 
     @Query("SELECT * FROM money_groups WHERE id = :id")
     suspend fun byId(id: Long): GroupEntity?
+
+    /**
+     * Case-insensitive because the group name comes back from a language model, which is
+     * under no obligation to match the stored casing — the same reasoning as
+     * [CategoryDao.byNameIgnoreCase]. Resolves against existing groups only; a name that
+     * matches nothing stays unattributed rather than creating a group (ADR-0017).
+     */
+    @Query("SELECT * FROM money_groups WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun byNameIgnoreCase(name: String): GroupEntity?
 }

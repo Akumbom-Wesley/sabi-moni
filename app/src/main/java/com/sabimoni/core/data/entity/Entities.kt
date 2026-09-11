@@ -80,11 +80,18 @@ data class GroupContributionEntity(
             childColumns = ["groupContributionId"],
             onDelete = ForeignKey.SET_NULL,
         ),
+        ForeignKey(
+            entity = GroupEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["groupId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
     indices = [
         Index("messageId"),
         Index("categoryId"),
         Index("groupContributionId"),
+        Index("groupId"),
         Index("occurredOn"),
     ],
 )
@@ -97,6 +104,21 @@ data class TransactionEntity(
     val categoryId: Long? = null,
     val note: String? = null,
     val moneySource: MoneySource = MoneySource.UNKNOWN,
+    /**
+     * Which group this money went to or came from, when it belongs to one.
+     *
+     * Set for both a settled obligation *and* an unannounced gift ("gave 5000 to choir"),
+     * which is the gap ADR-0017 recorded and ADR-0025 closes: before this, a parsed group
+     * reference survived only as words in the note.
+     *
+     * Never set by a caller alongside [groupContributionId] — the repository derives it
+     * from the contribution's own group, so the two cannot disagree. See ADR-0025.
+     */
+    val groupId: Long? = null,
+    /**
+     * The specific announced obligation this transaction settles, when there is one. Null
+     * for money given to a group that nobody asked for.
+     */
     val groupContributionId: Long? = null,
     val autoDetected: Boolean = false,
     val createdAt: Instant,

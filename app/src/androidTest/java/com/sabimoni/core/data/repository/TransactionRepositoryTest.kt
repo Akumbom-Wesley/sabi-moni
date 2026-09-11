@@ -41,13 +41,7 @@ class TransactionRepositoryTest {
             SabiMoniDatabase::class.java,
         ).build()
 
-        repository = TransactionRepository(
-            database = database,
-            transactionDao = database.transactionDao(),
-            categoryDao = database.categoryDao(),
-            messageDao = database.messageDao(),
-            clock = clock,
-        )
+        repository = database.transactionRepository(clock)
     }
 
     @After

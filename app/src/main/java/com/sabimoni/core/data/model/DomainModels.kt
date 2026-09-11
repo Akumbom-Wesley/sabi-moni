@@ -1,5 +1,6 @@
 package com.sabimoni.core.data.model
 
+import com.sabimoni.core.data.entity.ContributionStatus
 import com.sabimoni.core.data.entity.Direction
 import com.sabimoni.core.data.entity.GroupType
 import com.sabimoni.core.data.entity.MessageSource
@@ -7,6 +8,7 @@ import com.sabimoni.core.data.entity.ParseStatus
 import com.sabimoni.core.money.Money
 import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 /**
  * Domain models. Repositories map entities to these before anything crosses into a
@@ -35,12 +37,23 @@ data class LoggedEntry(
     val direction: Direction,
     val categoryId: Long?,
     val categoryName: String?,
+    val groupId: Long?,
+    val groupName: String?,
     val note: String?,
     val occurredOn: LocalDate,
     /** True for an entry derived from a MoMo SMS rather than something the user typed. */
     val autoDetected: Boolean,
     val loggedAt: Instant,
-)
+    /** Set when this entry settles an announced obligation. */
+    val settlesContributionId: Long? = null,
+) {
+    /**
+     * A payment for an announced obligation takes its group from that obligation, so the
+     * editor shows the group as fixed rather than letting a correction break the
+     * invariant ADR-0025 relies on. Change the obligation instead.
+     */
+    val isGroupFixed: Boolean get() = settlesContributionId != null
+}
 
 /**
  * One position in the capture thread (FR1.5). A manual entry has no message to sit under,
@@ -75,10 +88,56 @@ data class DayTotals(val income: Money, val expense: Money) {
 /** A category as the editor's picker needs it: something to choose, never to invent. */
 data class Category(val id: Long, val name: String)
 
+/**
+ * Everything the entry editor's pickers offer. One type because they are only ever wanted
+ * together, and because the capture screen's state would otherwise need a sixth flow —
+ * past the arity `combine` gives type safety for.
+ */
+data class EditorOptions(
+    val categories: List<Category> = emptyList(),
+    val groups: List<MoneyGroup> = emptyList(),
+)
+
 data class MoneyGroup(
     val id: Long,
     val name: String,
     val type: GroupType,
     val penalty: Money?,
     val reminderLeadDays: Int,
+)
+
+/**
+ * One announced obligation (FR4.2). Carries its group's name and penalty because nothing
+ * useful can be said about a contribution without them.
+ */
+data class Contribution(
+    val id: Long,
+    val groupId: Long,
+    val groupName: String,
+    val amount: Money,
+    val dueDate: LocalDate,
+    val status: ContributionStatus,
+    val paidDate: LocalDate?,
+    val note: String?,
+    /** What missing it costs — the motivation FR4.4 asks the reminder to surface. */
+    val penalty: Money?,
+) {
+    val isOutstanding: Boolean get() = status == ContributionStatus.PENDING
+
+    /** Paid, but after the due date. FR4.5 wants on-time distinguished from late. */
+    val wasLate: Boolean
+        get() = status == ContributionStatus.PAID && paidDate != null && paidDate > dueDate
+
+    fun isOverdue(today: LocalDate): Boolean = isOutstanding && dueDate < today
+
+    /** Negative once the due date has passed. */
+    fun daysUntilDue(today: LocalDate): Long = ChronoUnit.DAYS.between(today, dueDate)
+}
+
+/** A group with what it currently owes, for the group list and FR4.6. */
+data class GroupSummary(
+    val group: MoneyGroup,
+    val outstanding: Money,
+    val dueCount: Int,
+    val nextDueDate: LocalDate?,
 )

@@ -2,8 +2,8 @@ package com.sabimoni.feature.capture
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sabimoni.core.data.model.Category
 import com.sabimoni.core.data.model.DayTotals
+import com.sabimoni.core.data.model.EditorOptions
 import com.sabimoni.core.data.model.ThreadItem
 import com.sabimoni.core.data.repository.CaptureRepository
 import com.sabimoni.core.data.repository.TransactionRepository
@@ -28,7 +28,7 @@ data class CaptureUiState(
     val items: List<ThreadItem> = emptyList(),
     val pendingCount: Int = 0,
     val totals: DayTotals = DayTotals.EMPTY,
-    val categories: List<Category> = emptyList(),
+    val options: EditorOptions = EditorOptions(),
 )
 
 @HiltViewModel
@@ -52,16 +52,16 @@ class CaptureViewModel @Inject constructor(
                 capture.observeThread(),
                 capture.observePendingCount(),
                 transactions.observeDayTotals(today),
-                transactions.observeCategories(),
+                transactions.observeEditorOptions(),
                 transactions.observeBalance(),
-            ) { items, pendingCount, totals, categories, balance ->
+            ) { items, pendingCount, totals, options, balance ->
                 CaptureUiState(
                     today = today,
                     balance = balance,
                     items = items,
                     pendingCount = pendingCount,
                     totals = totals,
-                    categories = categories,
+                    options = options,
                 )
             },
         )
@@ -86,6 +86,7 @@ class CaptureViewModel @Inject constructor(
                 amount = edit.amount,
                 direction = edit.direction,
                 categoryId = edit.categoryId,
+                groupId = edit.groupId,
                 note = edit.note,
                 occurredOn = edit.occurredOn,
             )
@@ -100,6 +101,7 @@ class CaptureViewModel @Inject constructor(
                 amount = edit.amount,
                 direction = edit.direction,
                 categoryId = edit.categoryId,
+                groupId = edit.groupId,
                 note = edit.note,
                 occurredOn = edit.occurredOn,
             )

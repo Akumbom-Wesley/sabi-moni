@@ -9,7 +9,7 @@ The spec gives an ordering, not a plan. This file is the plan: what each sprint
 delivers, what "done" means, and what is deliberately not in it yet. Update the status
 table and tick the boxes as work lands — this is the file that answers "what's next".
 
-**State as of:** 2026-09-10 · capture loop closed (`f663bab`), the day is editable, running
+**State as of:** 2026-09-11 · groups and reminders landed, database at version 2, running
 on the Pixel 6 daily driver, Gemini key stored.
 
 ---
@@ -20,9 +20,9 @@ on the Pixel 6 daily driver, Gemini key stored.
 |---|---|---|---|
 | 0 | Scaffold | — | Done |
 | 1 | Close the capture loop | FR1.3, FR2.1–2.6 | ✅ Done |
-| 2 | Make the day usable | FR1.4, FR1.5, FR1.6 | ✅ Done (group field deferred) |
-| 3 | Groups | FR4.1–4.6 | ▶ **Next** |
-| 4 | Reports | FR5.1–5.4 | Not started |
+| 2 | Make the day usable | FR1.4, FR1.5, FR1.6 | ✅ Done (FR1.4 completed in Sprint 3) |
+| 3 | Groups | FR4.1–4.6 | ✅ Done (tests unrun) |
+| 4 | Reports | FR5.1–5.4 | ▶ **Next** |
 | 5 | Savings | FR6.1–6.3 | Not started |
 | 6 | MoMo SMS auto-detect | FR3.1–3.3 | Not started |
 | 7 | App lock and hardening | FR7.1–7.2 | Not started |
@@ -157,12 +157,12 @@ Sprint 3.
 
 ### Deferred out of this sprint
 
-**The group field on the editor (part of FR1.4).** `TransactionEntity` can only reference a
-`GroupContributionEntity`, not a `GroupEntity`. Attaching a group today would mean
-fabricating a contribution — an obligation with a due date and penalty nobody announced —
-from a user who was only fixing a category. Sprint 3 owns that schema decision, and group
-correction lands with it. Reasoning in
-[ADR-0018](adr/0018-corrections-and-manual-entry.md); a disabled picker was rejected too.
+**The group field on the editor (part of FR1.4)** — ✅ since landed in Sprint 3.
+`TransactionEntity` could only reference a `GroupContributionEntity`, not a `GroupEntity`,
+so attaching a group would have meant fabricating an obligation with a due date and penalty
+nobody announced. Deferred in
+[ADR-0018](adr/0018-corrections-and-manual-entry.md), unblocked by
+[ADR-0025](adr/0025-how-a-transaction-references-a-group.md).
 
 **Category management.** The editor picks from existing categories plus "Uncategorised" and
 cannot create one, keeping ADR-0017's rule intact on the human path. Add/rename/archive is
@@ -220,25 +220,58 @@ in Settings, on the DataStore that already existed.
 - FR4.5 — mark Paid/Missed, full per-group history, on-time versus late
 - FR4.6 — what I owe right now, across all groups
 
-`GroupRepository` already creates groups and observes total outstanding; contributions,
-reminders and history are unbuilt.
-
 ### Tasks
 
-- [ ] Contribution create and edit (group, amount, due date), Paid/Missed transitions
-- [ ] `ReminderWorker` scheduling off `reminderLeadDays`, penalty in the notification body
-- [ ] **Runtime `POST_NOTIFICATIONS` request** — currently never requested anywhere
-- [ ] Owed-across-all-groups view, and a per-group history screen
-- [ ] Paying a contribution writes the linked transaction
-- [ ] **Decide how a transaction references a group** — a group, a contribution, or both.
-      This is the schema decision ADR-0017 and ADR-0018 both defer to; it needs a
-      migration off version 1
-- [ ] Add the group field to `EntryEditorDialog`, completing FR1.4, once that lands
+- [x] **Decided how a transaction references a group** — `groupId` alongside the existing
+      `groupContributionId`, with `groupId` *derived* from the contribution whenever one is
+      involved so the two cannot disagree (ADR-0025)
+- [x] Database **version 2**, via `@AutoMigration` rather than hand-written SQL: SQLite
+      cannot add a foreign key with `ALTER TABLE`, so the table is recreated and every row
+      copied, and Room derives that from the two exported schemas
+- [x] Group create and edit: name, type, penalty, reminder lead time (FR4.1)
+- [x] Contribution create, edit and delete (group, amount, due date, note) (FR4.2)
+- [x] `ReminderWorker` + `ReminderScheduler`, fired `reminderLeadDays` before the due date
+      at 09:00 local, with the penalty in the body (FR4.3–4.4)
+- [x] The reminder re-reads the contribution when it fires, so a settled obligation does
+      not notify
+- [x] **Runtime `POST_NOTIFICATIONS` request** — asked for on the Groups screen, and only
+      once something is outstanding
+- [x] Paid/Missed transitions; paying writes the linked transaction in one database
+      transaction, with `groupId` derived from the contribution (FR4.5)
+- [x] Deleting a payment reverts its obligation to `PENDING` and re-arms the reminder,
+      unless another payment still settles it (ADR-0026)
+- [x] Owed-across-all-groups headline, due-now list, and per-group history in expandable
+      cards, all derived from one read (FR4.5, FR4.6)
+- [x] Changing a group's lead time re-arms its outstanding reminders
+- [x] The parser's `matchedGroup` — returned since Sprint 1 and discarded ever since — now
+      resolves to a real group, on the same "match, never create" terms as categories
+- [x] **Group field added to `EntryEditorDialog`, completing FR1.4.** Fixed, not editable,
+      on a transaction that settles an announced obligation
+- [x] Migration verified on the device against real data: `user_version = 2` and
+      `transactions.groupId` present, no data loss
+- [x] Both flavors build; 31 JVM tests still pass
+- [ ] Run the instrumented tests — `GroupRepositoryTest` (14) is new, ~45 in total, on an
+      emulator rather than the daily driver
+- [ ] On-device acceptance run
 
 ### Done when
 
 A contribution due in three days fires a reminder naming the penalty, and marking it paid
-records the transaction and clears it from the owed view.
+records the transaction and clears it from the owed view. — Met in code; awaiting the test
+and acceptance runs.
+
+### Decisions taken
+
+[ADR-0025](adr/0025-how-a-transaction-references-a-group.md): the schema question two
+sprints deferred. Two references rather than one, with the redundancy made unrepresentable
+by deriving `groupId` instead of accepting it — and a deliberate bet that a contribution
+may one day be paid in instalments, which the tidier single-reference design would have
+foreclosed.
+
+[ADR-0026](adr/0026-the-contribution-lifecycle-and-its-reminders.md): WorkManager owns the
+reminder schedule and the `reminders` table is only a log of what fired; reminders land at
+09:00 because paying is a daytime errand, unlike capture; and deleting a payment puts its
+obligation back, because "what I owe" is the one screen that must not lie.
 
 ---
 

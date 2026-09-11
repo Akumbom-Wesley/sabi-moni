@@ -105,8 +105,11 @@ private fun TransactionRow.toDomain() = LoggedEntry(
     direction = direction,
     categoryId = categoryId,
     categoryName = categoryName,
+    groupId = groupId,
+    groupName = groupName,
     note = note,
     occurredOn = occurredOn,
     autoDetected = autoDetected,
     loggedAt = createdAt,
+    settlesContributionId = groupContributionId,
 )

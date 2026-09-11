@@ -40,3 +40,5 @@ not the decision — that's visible in the code — but the *reasoning* and the
 | [0022](0022-balance-as-the-headline.md) | Balance as the headline, today beneath it | Accepted |
 | [0023](0023-theme-choice-in-settings.md) | A theme the user can choose | Accepted |
 | [0024](0024-system-bars-and-thread-visual-design.md) | System bars, tonal surfaces, and the shape of the thread | Accepted |
+| [0025](0025-how-a-transaction-references-a-group.md) | How a transaction references a group | Accepted |
+| [0026](0026-the-contribution-lifecycle-and-its-reminders.md) | The contribution lifecycle and its reminders | Accepted |

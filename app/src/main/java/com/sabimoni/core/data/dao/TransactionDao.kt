@@ -30,6 +30,10 @@ data class TransactionRow(
     val direction: Direction,
     val categoryId: Long?,
     val categoryName: String?,
+    val groupId: Long?,
+    val groupName: String?,
+    /** Non-null when this transaction settles an announced obligation (ADR-0025). */
+    val groupContributionId: Long?,
     val note: String?,
     val autoDetected: Boolean,
     val createdAt: Instant,
@@ -70,6 +74,7 @@ interface TransactionDao {
         SET amountXaf = :amountXaf,
             direction = :direction,
             categoryId = :categoryId,
+            groupId = :groupId,
             note = :note,
             occurredOn = :occurredOn
         WHERE id = :id
@@ -80,6 +85,7 @@ interface TransactionDao {
         amountXaf: Long,
         direction: Direction,
         categoryId: Long?,
+        groupId: Long?,
         note: String?,
         occurredOn: LocalDate,
     )
@@ -132,11 +138,15 @@ interface TransactionDao {
                t.direction AS direction,
                t.categoryId AS categoryId,
                c.name AS categoryName,
+               t.groupId AS groupId,
+               g.name AS groupName,
+               t.groupContributionId AS groupContributionId,
                t.note AS note,
                t.autoDetected AS autoDetected,
                t.createdAt AS createdAt
         FROM transactions t
         LEFT JOIN categories c ON c.id = t.categoryId
+        LEFT JOIN money_groups g ON g.id = t.groupId
         ORDER BY t.id ASC
         """,
     )
