@@ -12,6 +12,7 @@ It is a mirror, not a budget enforcer.
 
 - Full product spec: [`product-brief-mvp-spec.md`](product-brief-mvp-spec.md)
 - Architecture decisions: [`docs/adr/`](docs/adr/README.md)
+- Build order and what is next: [`docs/sprint-plan.md`](docs/sprint-plan.md)
 
 ## Shape of it
 
@@ -63,6 +64,8 @@ screen and stored encrypted with an Android Keystore AES-GCM key. Get one from
 
 ## Status
 
-Scaffold stage. The build system, data model, AI provider abstraction, secure key
-storage and navigation exist; the capture loop is partially wired. Reports and savings
-are placeholders. See `docs/adr/` for what has been decided and why.
+The core loop works. A typed paragraph is parsed into line items, each line is tappable
+to correct, entries can be added by hand, and the day carries a running total. Groups,
+reports and savings are still placeholders — see
+[`docs/sprint-plan.md`](docs/sprint-plan.md) for what is next and `docs/adr/` for what has
+been decided and why.

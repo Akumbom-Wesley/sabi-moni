@@ -46,3 +46,27 @@ private fun groupThousands(value: Long): String {
     }
     return if (value < 0) "-$builder" else builder.toString()
 }
+
+private val THOUSANDS_SEPARATORS = charArrayOf(
+    ' ',
+    NARROW_NO_BREAK_SPACE,
+    '\u00A0',
+    ',',
+    '.',
+    '\'',
+)
+
+/**
+ * Reads an amount a human typed into a form (FR1.4, FR1.6). XAF has no minor unit
+ * (ADR-0006), so a dot or comma can only be a thousands separator — `1.500`, `1,500` and
+ * `1 500` are all 1500, and there is no reading under which any of them is one and a half.
+ *
+ * Returns null for anything that is not a positive whole amount, so a half-typed field
+ * disables Save rather than saving a guess.
+ */
+fun parseMoney(input: String): Money? {
+    val digits = input.filterNot { it in THOUSANDS_SEPARATORS }
+    if (digits.isEmpty() || !digits.all(Char::isDigit)) return null
+    val xaf = digits.toLongOrNull() ?: return null
+    return if (xaf > 0L) Money(xaf) else null
+}

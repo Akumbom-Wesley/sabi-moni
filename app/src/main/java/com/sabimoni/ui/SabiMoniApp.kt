@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -58,6 +59,11 @@ fun SabiMoniApp() {
     val backStackEntry by navController.currentBackStackEntryAsState()
 
     Scaffold(
+        // The Scaffold's container fills the whole window, system bars included, so this
+        // is also the colour of the strip behind the clock and battery. A tonal surface
+        // rather than plain `background`, which under a light dynamic palette is close
+        // enough to white that the top of the screen read as blank (ADR-0024).
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         bottomBar = {
             SabiMoniBottomBar(
                 navController = navController,

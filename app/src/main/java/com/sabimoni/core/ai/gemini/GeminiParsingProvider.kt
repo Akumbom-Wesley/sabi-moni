@@ -82,6 +82,12 @@ class GeminiParsingProvider @Inject constructor(
         appendLine("- source: CASH, MOMO, CARD or UNKNOWN. MoMo alerts are MOMO.")
         appendLine("- date: ISO yyyy-MM-dd. Resolve relative dates against today; default to today.")
         appendLine("- note: a few words of context, e.g. 'taxi to work'.")
+        appendLine(
+            "- note must NEVER contain the amount or a currency. The amount is its own " +
+                "field, and a copy of it in the note contradicts the entry as soon as the " +
+                "user corrects it. For 'sent 1600 to my girlfriend' the note is " +
+                "'to my girlfriend', not 'sent 1600 to my girlfriend'.",
+        )
         appendLine("- Emit one entry per distinct thing that happened; split compound sentences.")
     }
 

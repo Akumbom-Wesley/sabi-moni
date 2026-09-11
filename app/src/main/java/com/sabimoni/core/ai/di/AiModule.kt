@@ -33,10 +33,14 @@ object HttpModule {
                 },
             )
         }
+        // A parse is one short sentence in and a few JSON objects out. A 60-second
+        // request ceiling meant a dead connection took a minute and a half to admit it,
+        // all of it spent behind "waiting to be interpreted" — see ADR-0021. 30 seconds
+        // is still generous for slow mobile data, which is the normal case here.
         install(HttpTimeout) {
-            connectTimeoutMillis = 15_000
-            requestTimeoutMillis = 60_000
-            socketTimeoutMillis = 60_000
+            connectTimeoutMillis = 10_000
+            requestTimeoutMillis = 30_000
+            socketTimeoutMillis = 30_000
         }
     }
 }

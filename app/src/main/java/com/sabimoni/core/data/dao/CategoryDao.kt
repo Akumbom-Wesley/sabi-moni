@@ -25,4 +25,11 @@ interface CategoryDao {
 
     @Query("SELECT * FROM categories WHERE name = :name LIMIT 1")
     suspend fun byName(name: String): CategoryEntity?
+
+    /**
+     * Case-insensitive because the category name comes back from a language model,
+     * which is under no obligation to match the stored casing.
+     */
+    @Query("SELECT * FROM categories WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun byNameIgnoreCase(name: String): CategoryEntity?
 }
