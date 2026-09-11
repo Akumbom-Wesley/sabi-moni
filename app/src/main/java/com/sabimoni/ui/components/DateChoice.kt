@@ -1,7 +1,5 @@
 package com.sabimoni.ui.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -14,13 +12,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-/** `d MMM` — short enough that a row of date chips never wraps (ADR-0019). */
+/** `d MMM` rather than an ISO date: short enough not to blow out a chip (ADR-0019). */
 private val SHORT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM")
 
 /**
@@ -30,8 +27,8 @@ private val SHORT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM")
  * contribution dialog, whose due dates look forwards ("In a week") — so the caller
  * supplies the shortcuts and only the picker mechanics live here.
  *
- * @param shortcuts label to date, in the order they should appear. Labels stay short and
- * single-line so the row cannot wrap.
+ * @param shortcuts label to date, in the order they should appear. Labels stay short so
+ * a chip holds one line; the row itself wraps when they do not all fit.
  */
 @Composable
 fun DateChoiceRow(
@@ -42,7 +39,9 @@ fun DateChoiceRow(
     var showPicker by rememberSaveable { mutableStateOf(false) }
     val isCustom = shortcuts.none { it.second == selected }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Wraps rather than clips: the contribution dialog's shortcuts ("In a week") are wide
+    // enough that four chips do not fit one line at dialog width.
+    ChipFlowRow {
         shortcuts.forEach { (label, date) ->
             DateChip(
                 label = label,

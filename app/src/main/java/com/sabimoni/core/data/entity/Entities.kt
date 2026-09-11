@@ -31,7 +31,6 @@ data class CategoryEntity(
 data class GroupEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
     val name: String,
-    val type: GroupType = GroupType.CONTRIBUTION,
     val penaltyXaf: Long? = null,
     val reminderLeadDays: Int = 2,
     val isArchived: Boolean = false,

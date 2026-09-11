@@ -9,7 +9,7 @@ The spec gives an ordering, not a plan. This file is the plan: what each sprint
 delivers, what "done" means, and what is deliberately not in it yet. Update the status
 table and tick the boxes as work lands — this is the file that answers "what's next".
 
-**State as of:** 2026-09-11 · groups and reminders landed, database at version 2, running
+**State as of:** 2026-09-11 · groups and reminders landed, database at version 4, running
 on the Pixel 6 daily driver, Gemini key stored.
 
 ---
@@ -225,10 +225,13 @@ in Settings, on the DataStore that already existed.
 - [x] **Decided how a transaction references a group** — `groupId` alongside the existing
       `groupContributionId`, with `groupId` *derived* from the contribution whenever one is
       involved so the two cannot disagree (ADR-0025)
-- [x] Database **version 2**, via `@AutoMigration` rather than hand-written SQL: SQLite
+- [x] Database **version 2**, via `@AutoMigration` rather than hand-written SQL (the sprint
+      ended at version 4 — see the group-type removal below): SQLite
       cannot add a foreign key with `ALTER TABLE`, so the table is recreated and every row
       copied, and Room derives that from the two exported schemas
-- [x] Group create and edit: name, type, penalty, reminder lead time (FR4.1)
+- [x] Group create and edit: name, penalty, reminder lead time (FR4.1). Group *type* was
+      removed outright — nothing read it, and it was a mandatory choice that changed
+      nothing (ADR-0028)
 - [x] Contribution create, edit and delete (group, amount, due date, note) (FR4.2)
 - [x] `ReminderWorker` + `ReminderScheduler`, fired `reminderLeadDays` before the due date
       at 09:00 local, with the penalty in the body (FR4.3–4.4)
@@ -247,8 +250,11 @@ in Settings, on the DataStore that already existed.
       resolves to a real group, on the same "match, never create" terms as categories
 - [x] **Group field added to `EntryEditorDialog`, completing FR1.4.** Fixed, not editable,
       on a transaction that settles an announced obligation
-- [x] Migration verified on the device against real data: `user_version = 2` and
-      `transactions.groupId` present, no data loss
+- [x] Chip rows wrap instead of clipping — a plain `Row` was painting the last option off
+      the edge with nothing to suggest it was there
+- [x] Every migration verified on the device against real data, not assumed: ending at
+      `user_version = 4`, with `transactions.groupId` present, `money_groups.type` gone,
+      and the existing group intact
 - [x] Both flavors build; 31 JVM tests still pass
 - [ ] Run the instrumented tests — `GroupRepositoryTest` (14) is new, ~45 in total, on an
       emulator rather than the daily driver

@@ -2,7 +2,6 @@ package com.sabimoni.core.data.model
 
 import com.sabimoni.core.data.entity.ContributionStatus
 import com.sabimoni.core.data.entity.Direction
-import com.sabimoni.core.data.entity.GroupType
 import com.sabimoni.core.data.entity.MessageSource
 import com.sabimoni.core.data.entity.ParseStatus
 import com.sabimoni.core.money.Money
@@ -101,7 +100,6 @@ data class EditorOptions(
 data class MoneyGroup(
     val id: Long,
     val name: String,
-    val type: GroupType,
     val penalty: Money?,
     val reminderLeadDays: Int,
 )

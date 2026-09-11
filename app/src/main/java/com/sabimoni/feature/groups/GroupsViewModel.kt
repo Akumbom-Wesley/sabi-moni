@@ -2,7 +2,6 @@ package com.sabimoni.feature.groups
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sabimoni.core.data.entity.GroupType
 import com.sabimoni.core.data.model.Contribution
 import com.sabimoni.core.data.model.GroupSummary
 import com.sabimoni.core.data.model.MoneyGroup
@@ -93,7 +92,6 @@ class GroupsViewModel @Inject constructor(
             if (edit.id == null) {
                 repository.createGroup(
                     name = edit.name,
-                    type = edit.type,
                     penalty = edit.penalty,
                     reminderLeadDays = edit.reminderLeadDays,
                 )
@@ -101,7 +99,6 @@ class GroupsViewModel @Inject constructor(
                 repository.updateGroup(
                     id = edit.id,
                     name = edit.name,
-                    type = edit.type,
                     penalty = edit.penalty,
                     reminderLeadDays = edit.reminderLeadDays,
                 )
@@ -109,7 +106,7 @@ class GroupsViewModel @Inject constructor(
         }
     }
 
-    /** Kept for the quick add-by-name field; the dialog covers type and penalty. */
+    /** Kept for the quick add-by-name field; the dialog covers penalty and lead time. */
     fun createGroup(name: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
@@ -159,7 +156,6 @@ class GroupsViewModel @Inject constructor(
 data class GroupEdit(
     val id: Long?,
     val name: String,
-    val type: GroupType,
     val penalty: Money?,
     val reminderLeadDays: Int,
 )

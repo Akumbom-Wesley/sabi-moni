@@ -42,3 +42,5 @@ not the decision — that's visible in the code — but the *reasoning* and the
 | [0024](0024-system-bars-and-thread-visual-design.md) | System bars, tonal surfaces, and the shape of the thread | Accepted |
 | [0025](0025-how-a-transaction-references-a-group.md) | How a transaction references a group | Accepted |
 | [0026](0026-the-contribution-lifecycle-and-its-reminders.md) | The contribution lifecycle and its reminders | Accepted |
+| [0027](0027-enum-names-are-stored-data.md) | Enum names are stored data | Accepted (the GroupType rename it describes is superseded by 0028; the rule stands) |
+| [0028](0028-groups-have-no-type.md) | Groups have no type | Accepted |

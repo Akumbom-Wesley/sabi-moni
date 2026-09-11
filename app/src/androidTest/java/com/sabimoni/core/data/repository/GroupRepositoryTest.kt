@@ -7,7 +7,6 @@ import com.google.common.truth.Truth.assertThat
 import com.sabimoni.core.data.SabiMoniDatabase
 import com.sabimoni.core.data.entity.ContributionStatus
 import com.sabimoni.core.data.entity.Direction
-import com.sabimoni.core.data.entity.GroupType
 import com.sabimoni.core.money.Money
 import com.sabimoni.core.reminder.ReminderScheduler
 import kotlinx.coroutines.flow.first
@@ -94,7 +93,7 @@ class GroupRepositoryTest {
         val id = groups.addContribution(choir, Money(5_000), today.plusDays(10))
         val original = scheduler.scheduledAt(id)
 
-        groups.updateGroup(choir, "Choir", GroupType.CONTRIBUTION, null, reminderLeadDays = 7)
+        groups.updateGroup(choir, "Choir", penalty = null, reminderLeadDays = 7)
 
         // A lead time that only applied to future obligations would silently not work.
         assertThat(scheduler.scheduledAt(id)).isNotEqualTo(original)

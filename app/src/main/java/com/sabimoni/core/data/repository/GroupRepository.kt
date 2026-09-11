@@ -10,7 +10,6 @@ import com.sabimoni.core.data.entity.ContributionStatus
 import com.sabimoni.core.data.entity.Direction
 import com.sabimoni.core.data.entity.GroupContributionEntity
 import com.sabimoni.core.data.entity.GroupEntity
-import com.sabimoni.core.data.entity.GroupType
 import com.sabimoni.core.data.entity.TransactionEntity
 import com.sabimoni.core.data.model.Contribution
 import com.sabimoni.core.data.model.MoneyGroup
@@ -52,13 +51,11 @@ class GroupRepository @Inject constructor(
 
     suspend fun createGroup(
         name: String,
-        type: GroupType = GroupType.CONTRIBUTION,
         penalty: Money? = null,
         reminderLeadDays: Int = DEFAULT_LEAD_DAYS,
     ): Long = groupDao.upsert(
         GroupEntity(
             name = name,
-            type = type,
             penaltyXaf = penalty?.xaf,
             reminderLeadDays = reminderLeadDays,
         ),
@@ -72,7 +69,6 @@ class GroupRepository @Inject constructor(
     suspend fun updateGroup(
         id: Long,
         name: String,
-        type: GroupType,
         penalty: Money?,
         reminderLeadDays: Int,
     ) {
@@ -80,7 +76,6 @@ class GroupRepository @Inject constructor(
         groupDao.upsert(
             existing.copy(
                 name = name,
-                type = type,
                 penaltyXaf = penalty?.xaf,
                 reminderLeadDays = reminderLeadDays,
             ),
@@ -249,7 +244,6 @@ class GroupRepository @Inject constructor(
 private fun GroupEntity.toDomain() = MoneyGroup(
     id = id,
     name = name,
-    type = type,
     penalty = penaltyXaf?.let(::Money),
     reminderLeadDays = reminderLeadDays,
 )

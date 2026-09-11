@@ -8,6 +8,4 @@ enum class Direction { INCOME, EXPENSE }
 
 enum class MoneySource { CASH, MOMO, CARD, UNKNOWN }
 
-enum class GroupType { CONTRIBUTION, TONTINE, CHARITY, SCHOOL, OTHER }
-
 enum class ContributionStatus { PENDING, PAID, MISSED }

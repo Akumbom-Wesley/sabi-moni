@@ -2,7 +2,6 @@ package com.sabimoni.feature.groups
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,15 +21,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.sabimoni.core.data.entity.GroupType
 import com.sabimoni.core.data.model.MoneyGroup
 import com.sabimoni.core.money.format
 import com.sabimoni.core.money.parseMoney
+import com.sabimoni.ui.components.ChipFlowRow
 
 private val LEAD_DAY_CHOICES = listOf(1, 2, 3, 7)
 
 /**
- * Create or edit a group (FR4.1): name, type, the penalty for missing a contribution, and
+ * Create or edit a group (FR4.1): a name, the penalty for missing a contribution, and
  * how many days ahead to warn.
  *
  * The penalty is optional but load-bearing — it is what the reminder puts in front of you
@@ -44,9 +43,6 @@ fun GroupEditorDialog(
     onSave: (GroupEdit) -> Unit,
 ) {
     var name by rememberSaveable(group?.id) { mutableStateOf(group?.name.orEmpty()) }
-    var type by rememberSaveable(group?.id) {
-        mutableStateOf(group?.type ?: GroupType.CONTRIBUTION)
-    }
     var penaltyText by rememberSaveable(group?.id) {
         mutableStateOf(group?.penalty?.format(withCurrency = false).orEmpty())
     }
@@ -74,16 +70,6 @@ fun GroupEditorDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                Text("Type", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    GroupType.entries.forEach { option ->
-                        FilterChip(
-                            selected = type == option,
-                            onClick = { type = option },
-                            label = { Text(option.label, maxLines = 1, softWrap = false) },
-                        )
-                    }
-                }
 
                 OutlinedTextField(
                     value = penaltyText,
@@ -97,7 +83,7 @@ fun GroupEditorDialog(
                 )
 
                 Text("Warn me this far ahead", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipFlowRow {
                     LEAD_DAY_CHOICES.forEach { days ->
                         FilterChip(
                             selected = leadDays == days,
@@ -121,7 +107,6 @@ fun GroupEditorDialog(
                         GroupEdit(
                             id = group?.id,
                             name = name.trim(),
-                            type = type,
                             penalty = penalty,
                             reminderLeadDays = leadDays,
                         ),
@@ -136,14 +121,5 @@ fun GroupEditorDialog(
     )
 }
 
-/** Wording, not domain — kept next to the chips that show it. */
-private val GroupType.label: String
-    get() = when (this) {
-        GroupType.CONTRIBUTION -> "Contribution"
-        GroupType.TONTINE -> "Tontine"
-        GroupType.CHARITY -> "Charity"
-        GroupType.SCHOOL -> "School"
-        GroupType.OTHER -> "Other"
-    }
 
 private const val DEFAULT_LEAD_DAYS = 2
