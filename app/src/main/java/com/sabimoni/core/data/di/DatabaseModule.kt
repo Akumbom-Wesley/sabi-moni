@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.sabimoni.core.data.MIGRATION_2_3
 import com.sabimoni.core.data.SabiMoniDatabase
 import com.sabimoni.core.data.dao.CategoryDao
 import com.sabimoni.core.data.dao.GroupContributionDao
@@ -49,6 +50,9 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): SabiMoniDatabase =
         Room.databaseBuilder(context, SabiMoniDatabase::class.java, SabiMoniDatabase.NAME)
             .addCallback(SeedCallback)
+            // v2 -> v3 renames a stored enum value, which Room cannot auto-derive from
+            // two structurally identical schemas (ADR-0027).
+            .addMigrations(MIGRATION_2_3)
             .build()
 
     @Provides

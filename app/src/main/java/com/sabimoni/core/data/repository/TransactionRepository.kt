@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.sabimoni.core.ai.TransactionDraft
 import com.sabimoni.core.data.SabiMoniDatabase
 import com.sabimoni.core.data.dao.CategoryDao
+import com.sabimoni.core.data.dao.GroupContributionDao
+import com.sabimoni.core.data.dao.GroupDao
 import com.sabimoni.core.data.dao.MessageDao
 import com.sabimoni.core.data.dao.TransactionDao
 import com.sabimoni.core.data.entity.Direction
@@ -12,9 +14,12 @@ import com.sabimoni.core.data.entity.MessageSource
 import com.sabimoni.core.data.entity.TransactionEntity
 import com.sabimoni.core.data.model.Category
 import com.sabimoni.core.data.model.DayTotals
+import com.sabimoni.core.data.model.EditorOptions
+import com.sabimoni.core.data.model.MoneyGroup
 import com.sabimoni.core.money.Money
 import com.sabimoni.core.parse.stripRestatedAmount
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.time.Clock
 import java.time.Instant
@@ -27,7 +32,12 @@ class TransactionRepository @Inject constructor(
     private val database: SabiMoniDatabase,
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
+    private val groupDao: GroupDao,
+    private val contributionDao: GroupContributionDao,
     private val messageDao: MessageDao,
+    // Depends on GroupRepository, not the reverse: GroupRepository reaches for
+    // `transactionDao` directly, so there is no cycle.
+    private val groupRepository: GroupRepository,
     private val clock: Clock,
 ) {
 
@@ -67,11 +77,20 @@ class TransactionRepository @Inject constructor(
         messageDao.noteAttemptFailure(messageId, reason)
     }
 
-    /** The categories the editor may choose from. Never a free-text field — ADR-0017. */
-    fun observeCategories(): Flow<List<Category>> =
-        categoryDao.observeActive().map { rows ->
-            rows.map { Category(id = it.id, name = it.name) }
-        }
+    /**
+     * What the editor's pickers may offer: existing categories and existing groups.
+     * Neither is ever created from the editor — ADR-0017 for categories, ADR-0025 for
+     * groups.
+     */
+    fun observeEditorOptions(): Flow<EditorOptions> = combine(
+        categoryDao.observeActive(),
+        groupRepository.observeGroups(),
+    ) { categories, groups ->
+        EditorOptions(
+            categories = categories.map { Category(id = it.id, name = it.name) },
+            groups = groups,
+        )
+    }
 
     /**
      * The running total for one day (FR1.5), summed over every entry dated that day —
@@ -97,6 +116,7 @@ class TransactionRepository @Inject constructor(
         amount: Money,
         direction: Direction,
         categoryId: Long?,
+        groupId: Long?,
         note: String?,
         occurredOn: LocalDate,
     ): Long = transactionDao.insert(
@@ -108,6 +128,9 @@ class TransactionRepository @Inject constructor(
             amountXaf = amount.xaf,
             direction = direction,
             categoryId = categoryId,
+            // A hand-entered gift to a group, settling no announced obligation — so
+            // `groupContributionId` stays null (ADR-0025).
+            groupId = groupId,
             note = note?.takeIf(String::isNotBlank),
             autoDetected = false,
             createdAt = Instant.now(clock),
@@ -124,14 +147,25 @@ class TransactionRepository @Inject constructor(
         amount: Money,
         direction: Direction,
         categoryId: Long?,
+        groupId: Long?,
         note: String?,
         occurredOn: LocalDate,
     ) {
+        val existing = transactionDao.byId(id) ?: return
+
+        // A transaction that settles an announced obligation takes its group from that
+        // obligation, so the existing value wins here whatever the caller passed. Letting
+        // a correction move it would leave `groupId` disagreeing with the contribution's
+        // own group — the one thing ADR-0025's two references must never do.
+        val effectiveGroupId =
+            if (existing.groupContributionId != null) existing.groupId else groupId
+
         transactionDao.applyCorrection(
             id = id,
             amountXaf = amount.xaf,
             direction = direction,
             categoryId = categoryId,
+            groupId = effectiveGroupId,
             note = note?.takeIf(String::isNotBlank),
             occurredOn = occurredOn,
         )
@@ -146,7 +180,23 @@ class TransactionRepository @Inject constructor(
      */
     suspend fun deleteEntries(ids: Collection<Long>) {
         if (ids.isEmpty()) return
-        transactionDao.deleteByIds(ids.toList())
+        val idList = ids.toList()
+
+        // Which obligations these payments were settling, read *before* the delete, while
+        // the links still exist.
+        val settled = contributionDao.contributionsSettledBy(idList)
+
+        transactionDao.deleteByIds(idList)
+
+        // An obligation still reading Paid after the payment that settled it has been
+        // deleted is the owed view lying about what you owe. Only reverted once nothing
+        // else still pays for it, since a contribution may be settled in instalments
+        // (ADR-0026).
+        settled.forEach { contributionId ->
+            if (contributionDao.paymentCountFor(contributionId) == 0) {
+                groupRepository.revertToPending(contributionId)
+            }
+        }
     }
 
     private suspend fun TransactionDraft.toEntity(
@@ -161,6 +211,11 @@ class TransactionRepository @Inject constructor(
         // Only ever resolved against categories that already exist — the model is not
         // allowed to invent taxonomy the user would then have to maintain (ADR-0017).
         categoryId = category?.let { categoryDao.byNameIgnoreCase(it)?.id },
+        // The group the parser matched, resolved on exactly the same terms: matched
+        // against existing groups, never creating one. This is what ADR-0017 could not do
+        // and ADR-0025 unblocked — "gave 5000 to choir" now lands on the choir record
+        // instead of surviving as a word in the note.
+        groupId = matchedGroup?.let { groupDao.byNameIgnoreCase(it)?.id },
         // The amount is a field, not prose. A note that restates it would contradict the
         // entry the moment the user corrects the amount — see ADR-0020.
         note = stripRestatedAmount(note, amountXaf),

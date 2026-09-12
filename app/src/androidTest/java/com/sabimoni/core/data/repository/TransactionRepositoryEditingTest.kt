@@ -46,13 +46,7 @@ class TransactionRepositoryEditingTest {
             SabiMoniDatabase::class.java,
         ).build()
 
-        repository = TransactionRepository(
-            database = database,
-            transactionDao = database.transactionDao(),
-            categoryDao = database.categoryDao(),
-            messageDao = database.messageDao(),
-            clock = clock,
-        )
+        repository = database.transactionRepository(clock)
     }
 
     @After
@@ -77,6 +71,7 @@ class TransactionRepositoryEditingTest {
             amount = Money(500),
             direction = Direction.INCOME,
             categoryId = food,
+            groupId = null,
             note = "actually lunch money back",
             occurredOn = today.minusDays(1),
         )
@@ -100,6 +95,7 @@ class TransactionRepositoryEditingTest {
             amount = Money(9_000),
             direction = Direction.INCOME,
             categoryId = null,
+            groupId = null,
             note = null,
             occurredOn = today,
         )
@@ -122,6 +118,7 @@ class TransactionRepositoryEditingTest {
             amount = Money(600),
             direction = Direction.EXPENSE,
             categoryId = null,
+            groupId = null,
             note = null,
             occurredOn = today,
         )
@@ -138,6 +135,7 @@ class TransactionRepositoryEditingTest {
             amount = Money(500),
             direction = Direction.EXPENSE,
             categoryId = null,
+            groupId = null,
             note = "something",
             occurredOn = today,
         )
@@ -147,6 +145,7 @@ class TransactionRepositoryEditingTest {
             amount = Money(500),
             direction = Direction.EXPENSE,
             categoryId = null,
+            groupId = null,
             note = "   ",
             occurredOn = today,
         )
@@ -170,15 +169,16 @@ class TransactionRepositoryEditingTest {
     @Test
     fun deleteEntries_removesAWholeSelectionAndLeavesTheRest() = runTest {
         val doomed = listOf(
-            repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, today),
-            repository.addManualEntry(Money(1_500), Direction.EXPENSE, null, null, today),
+            repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, null, today),
+            repository.addManualEntry(Money(1_500), Direction.EXPENSE, null, null, null, today),
         )
         val survivor = repository.addManualEntry(
-            Money(300),
-            Direction.EXPENSE,
-            null,
-            null,
-            today,
+            amount = Money(300),
+            direction = Direction.EXPENSE,
+            categoryId = null,
+            groupId = null,
+            note = null,
+            occurredOn = today,
         )
 
         repository.deleteEntries(doomed.toSet())
@@ -189,9 +189,9 @@ class TransactionRepositoryEditingTest {
 
     @Test
     fun deleteEntries_takesTheDeletedAmountsOutOfTheDayTotal() = runTest {
-        repository.addManualEntry(Money(20_000), Direction.INCOME, null, null, today)
-        val lunch = repository.addManualEntry(Money(1_500), Direction.EXPENSE, null, null, today)
-        val taxi = repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, today)
+        repository.addManualEntry(Money(20_000), Direction.INCOME, null, null, null, today)
+        val lunch = repository.addManualEntry(Money(1_500), Direction.EXPENSE, null, null, null, today)
+        val taxi = repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, null, today)
         assertThat(repository.observeDayTotals(today).first().net).isEqualTo(Money(18_000))
 
         repository.deleteEntries(setOf(lunch, taxi))
@@ -204,7 +204,7 @@ class TransactionRepositoryEditingTest {
 
     @Test
     fun deleteEntries_doesNothingForAnEmptySelection() = runTest {
-        repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, today)
+        repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, null, today)
 
         repository.deleteEntries(emptySet())
 
@@ -221,6 +221,7 @@ class TransactionRepositoryEditingTest {
             amount = Money(1_500),
             direction = Direction.EXPENSE,
             categoryId = food,
+            groupId = null,
             note = "lunch",
             occurredOn = today,
         )
@@ -239,6 +240,7 @@ class TransactionRepositoryEditingTest {
             amount = Money(1_500),
             direction = Direction.EXPENSE,
             categoryId = null,
+            groupId = null,
             note = "lunch",
             occurredOn = today,
         )
@@ -252,9 +254,9 @@ class TransactionRepositoryEditingTest {
 
     @Test
     fun observeDayTotals_sumsIncomeAndExpenseSeparately() = runTest {
-        repository.addManualEntry(Money(20_000), Direction.INCOME, null, null, today)
-        repository.addManualEntry(Money(1_500), Direction.EXPENSE, null, null, today)
-        repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, today)
+        repository.addManualEntry(Money(20_000), Direction.INCOME, null, null, null, today)
+        repository.addManualEntry(Money(1_500), Direction.EXPENSE, null, null, null, today)
+        repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, null, today)
 
         val totals = repository.observeDayTotals(today).first()
 
@@ -269,7 +271,7 @@ class TransactionRepositoryEditingTest {
         repository.commitParse(typed, listOf(draft(amountXaf = 1_500)))
         val sms = pendingMessage("You have received 10000 XAF", MessageSource.SMS)
         repository.commitParse(sms, listOf(draft(amountXaf = 10_000)))
-        repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, today)
+        repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, null, today)
 
         val totals = repository.observeDayTotals(today).first()
 
@@ -279,8 +281,8 @@ class TransactionRepositoryEditingTest {
 
     @Test
     fun observeDayTotals_ignoresOtherDays() = runTest {
-        repository.addManualEntry(Money(9_000), Direction.EXPENSE, null, null, today.minusDays(1))
-        repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, today)
+        repository.addManualEntry(Money(9_000), Direction.EXPENSE, null, null, null, today.minusDays(1))
+        repository.addManualEntry(Money(500), Direction.EXPENSE, null, null, null, today)
 
         assertThat(repository.observeDayTotals(today).first().expense).isEqualTo(Money(500))
     }
@@ -295,13 +297,23 @@ class TransactionRepositoryEditingTest {
     }
 
     @Test
-    fun observeCategories_offersOnlyActiveCategories() = runTest {
+    fun observeEditorOptions_offersOnlyActiveCategories() = runTest {
         database.categoryDao().upsert(CategoryEntity(name = "Food"))
         database.categoryDao().upsert(CategoryEntity(name = "Retired", isArchived = true))
 
-        val categories = repository.observeCategories().first()
+        val options = repository.observeEditorOptions().first()
 
-        assertThat(categories.map { it.name }).containsExactly("Food")
+        assertThat(options.categories.map { it.name }).containsExactly("Food")
+    }
+
+    @Test
+    fun observeEditorOptions_offersTheGroupsThePickerCanAttributeTo() = runTest {
+        database.groupRepository(clock).createGroup(name = "Choir")
+
+        val options = repository.observeEditorOptions().first()
+
+        // FR1.4's group field, which had no schema to sit on until ADR-0025.
+        assertThat(options.groups.map { it.name }).containsExactly("Choir")
     }
 
     // --- helpers ---------------------------------------------------------------

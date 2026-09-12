@@ -201,7 +201,8 @@ private fun CaptureContent(
         EditorRequest.New -> EntryEditorDialog(
             entry = null,
             today = state.today,
-            categories = state.categories,
+            categories = state.options.categories,
+            groups = state.options.groups,
             onDismiss = { editor = null },
             onSave = { edit ->
                 onAdd(edit)
@@ -211,7 +212,8 @@ private fun CaptureContent(
         is EditorRequest.Correct -> EntryEditorDialog(
             entry = request.entry,
             today = state.today,
-            categories = state.categories,
+            categories = state.options.categories,
+            groups = state.options.groups,
             onDismiss = { editor = null },
             onSave = { edit ->
                 onCorrect(request.entry.id, edit)
@@ -547,7 +549,9 @@ private fun EntryRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = entry.categoryName ?: "Uncategorised",
+                // Group first when there is one: "gave 5000 to choir" is about the choir,
+                // and until ADR-0025 that attribution could not be shown at all.
+                text = entry.groupName ?: entry.categoryName ?: "Uncategorised",
                 style = MaterialTheme.typography.bodyMedium,
             )
             entry.note?.let { note ->

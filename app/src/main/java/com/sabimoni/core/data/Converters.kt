@@ -3,7 +3,6 @@ package com.sabimoni.core.data
 import androidx.room.TypeConverter
 import com.sabimoni.core.data.entity.ContributionStatus
 import com.sabimoni.core.data.entity.Direction
-import com.sabimoni.core.data.entity.GroupType
 import com.sabimoni.core.data.entity.MessageSource
 import com.sabimoni.core.data.entity.MoneySource
 import com.sabimoni.core.data.entity.ParseStatus
@@ -47,12 +46,6 @@ class Converters {
 
     @TypeConverter
     fun nameToMoneySource(value: String): MoneySource = MoneySource.valueOf(value)
-
-    @TypeConverter
-    fun groupTypeToName(value: GroupType): String = value.name
-
-    @TypeConverter
-    fun nameToGroupType(value: String): GroupType = GroupType.valueOf(value)
 
     @TypeConverter
     fun contributionStatusToName(value: ContributionStatus): String = value.name
