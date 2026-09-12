@@ -41,6 +41,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sabimoni.core.data.entity.ContributionStatus
+import com.sabimoni.core.data.entity.RecurrenceUnit
 import com.sabimoni.core.data.model.Contribution
 import com.sabimoni.core.data.model.GroupSummary
 import com.sabimoni.core.data.model.MoneyGroup
@@ -166,6 +167,7 @@ private fun GroupsContent(
         null -> Unit
         is GroupsDialog.EditGroup -> GroupEditorDialog(
             group = open.group,
+            today = state.today,
             onDismiss = { dialog = null },
             onSave = { edit ->
                 onSaveGroup(edit)
@@ -326,9 +328,18 @@ private fun ContributionCard(
                 }
             }
 
-            contribution.penalty?.takeIf { !it.isZero }?.let { penalty ->
-                Text(
-                    text = "Missing it costs ${penalty.format()}",
+            // Before the deadline the penalty is a warning; after it, it is a bill, and
+            // the number that matters is what it now takes to settle (ADR-0029).
+            val fine = contribution.fineIncurred(today)
+            when {
+                fine != null -> Text(
+                    text = "Fine of ${fine.format()} applies · " +
+                        "${contribution.owedOn(today).format()} to settle",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                contribution.penalty?.isZero == false -> Text(
+                    text = "Missing it costs ${contribution.penalty.format()}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -487,10 +498,28 @@ private fun statusColour(contribution: Contribution) = when (contribution.status
 }
 
 private fun summaryLine(summary: GroupSummary): String {
-    if (summary.dueCount == 0) return "Nothing owed"
-    val next = summary.nextDueDate?.let { " · next $it" }.orEmpty()
-    return "Owed ${summary.outstanding.format()}$next"
+    // The standing commitment is worth stating even when nothing is owed right now: it is
+    // the reason obligations keep appearing without the user doing anything (ADR-0029).
+    val schedule = summary.group.recurrence
+        ?.let { "${it.amount.format()} ${it.unit.cadence}" }
+
+    if (summary.dueCount == 0) {
+        return listOfNotNull(schedule, "nothing owed now").joinToString(" · ")
+    }
+
+    val next = summary.nextDueDate?.let { "next $it" }
+    return listOfNotNull("Owed ${summary.outstanding.format()}", next, schedule)
+        .joinToString(" · ")
 }
+
+/** Reads as a phrase after an amount: "1 000 FCFA every month". */
+private val RecurrenceUnit.cadence: String
+    get() = when (this) {
+        RecurrenceUnit.WEEKLY -> "every week"
+        RecurrenceUnit.FORTNIGHTLY -> "every 2 weeks"
+        RecurrenceUnit.MONTHLY -> "every month"
+        RecurrenceUnit.QUARTERLY -> "every 3 months"
+    }
 
 private fun dueLabel(contribution: Contribution, today: LocalDate): String =
     when (val days = contribution.daysUntilDue(today)) {

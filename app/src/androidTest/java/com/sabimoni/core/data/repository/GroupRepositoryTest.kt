@@ -7,8 +7,11 @@ import com.google.common.truth.Truth.assertThat
 import com.sabimoni.core.data.SabiMoniDatabase
 import com.sabimoni.core.data.entity.ContributionStatus
 import com.sabimoni.core.data.entity.Direction
+import com.sabimoni.core.data.entity.RecurrenceUnit
+import com.sabimoni.core.data.model.Contribution
+import com.sabimoni.core.data.model.RecurrenceSchedule
 import com.sabimoni.core.money.Money
-import com.sabimoni.core.reminder.ReminderScheduler
+import com.sabimoni.core.reminder.ObligationScheduler
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -16,11 +19,14 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Clock
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-/** The contribution lifecycle (FR4.x) over real Room. See ADR-0025 and ADR-0026. */
+/**
+ * The contribution lifecycle (FR4.x) over real Room, including recurring schedules.
+ * See ADR-0025, ADR-0026 and ADR-0029. The deadline arithmetic itself is covered by the
+ * JVM `RecurrenceTest`, which runs without a device.
+ */
 @RunWith(AndroidJUnit4::class)
 class GroupRepositoryTest {
 
@@ -49,54 +55,207 @@ class GroupRepositoryTest {
     @After
     fun tearDown() = database.close()
 
-    // --- creating obligations (FR4.2, FR4.3) ----------------------------------
+    // --- recurring schedules (ADR-0029) ---------------------------------------
 
     @Test
-    fun addContribution_armsAReminderAtTheGroupsLeadTime() = runTest {
-        val choir = groups.createGroup(
+    fun rollForwardRecurring_materialisesEachPeriodWithoutTheUserReenteringIt() = runTest {
+        groups.createGroup(
             name = "Choir",
-            penalty = Money(2_000),
-            reminderLeadDays = 3,
+            reminderLeadDays = 4,
+            recurrence = monthly(amount = 1_000, anchor = LocalDate.of(2026, 6, 26)),
         )
 
-        val id = groups.addContribution(choir, Money(5_000), today.plusDays(10))
+        val created = groups.rollForwardRecurring(today)
 
-        // Three days before the due date, at 09:00 local — not the moment of scheduling.
-        val expected = today.plusDays(7).atTime(9, 0).toInstant(ZoneOffset.UTC)
-        assertThat(scheduler.scheduledAt(id)).isEqualTo(expected)
+        // June, July and August have passed; September's is inside the 4-day lead window.
+        assertThat(created).isEqualTo(4)
+        assertThat(groups.observeContributions().first().map(Contribution::dueDate))
+            .containsExactly(
+                LocalDate.of(2026, 6, 26),
+                LocalDate.of(2026, 7, 26),
+                LocalDate.of(2026, 8, 26),
+                LocalDate.of(2026, 9, 26),
+            )
     }
 
     @Test
-    fun addContribution_stillArmsAReminderForADueDateAlreadyPast() = runTest {
-        val choir = groups.createGroup(name = "Choir", reminderLeadDays = 2)
+    fun rollForwardRecurring_usesTheScheduledAmount() = runTest {
+        groups.createGroup(
+            name = "Choir",
+            recurrence = monthly(amount = 1_000, anchor = today),
+        )
 
-        val id = groups.addContribution(choir, Money(5_000), today.minusDays(3))
+        groups.rollForwardRecurring(today)
 
-        // Relayed late is exactly when a reminder is most useful, so it is not dropped.
-        assertThat(scheduler.scheduledAt(id)).isNotNull()
+        assertThat(groups.observeContributions().first().single().amount)
+            .isEqualTo(Money(1_000))
     }
 
     @Test
-    fun updateContribution_movesTheReminderWithTheDueDate() = runTest {
+    fun rollForwardRecurring_isIdempotent() = runTest {
+        groups.createGroup(
+            name = "Choir",
+            recurrence = monthly(amount = 1_000, anchor = LocalDate.of(2026, 7, 26)),
+        )
+        val firstRun = groups.rollForwardRecurring(today)
+
+        val secondRun = groups.rollForwardRecurring(today)
+        val thirdRun = groups.rollForwardRecurring(today)
+
+        // Recomputes the series each run and creates only what is missing, so a retry or a
+        // catch-up cannot duplicate a period.
+        assertThat(firstRun).isGreaterThan(0)
+        assertThat(secondRun).isEqualTo(0)
+        assertThat(thirdRun).isEqualTo(0)
+    }
+
+    @Test
+    fun rollForwardRecurring_bringsBackAPeriodTheUserDeleted() = runTest {
+        groups.createGroup(
+            name = "Choir",
+            recurrence = monthly(amount = 1_000, anchor = LocalDate.of(2026, 8, 26)),
+        )
+        groups.rollForwardRecurring(today)
+        val august = groups.observeContributions().first()
+            .first { it.dueDate == LocalDate.of(2026, 8, 26) }
+
+        groups.deleteContribution(august.id)
+        groups.rollForwardRecurring(today)
+
+        // Pinned as known behaviour rather than endorsed: the schedule still says that
+        // period was owed, and suppressing it would need a tombstone (ADR-0029).
+        assertThat(groups.observeContributions().first().map(Contribution::dueDate))
+            .contains(LocalDate.of(2026, 8, 26))
+    }
+
+    @Test
+    fun rollForwardRecurring_ignoresAGroupWithNoSchedule() = runTest {
+        groups.createGroup(name = "Ad hoc charity")
+
+        assertThat(groups.rollForwardRecurring(today)).isEqualTo(0)
+        assertThat(groups.observeContributions().first()).isEmpty()
+    }
+
+    @Test
+    fun rollForwardRecurring_createsNothingBeforeTheFirstDeadlineIsNear() = runTest {
+        groups.createGroup(
+            name = "Choir",
+            reminderLeadDays = 2,
+            recurrence = monthly(amount = 1_000, anchor = today.plusMonths(1)),
+        )
+
+        assertThat(groups.rollForwardRecurring(today)).isEqualTo(0)
+    }
+
+    @Test
+    fun editingAScheduleChangesWhatLaterPeriodsDemand() = runTest {
+        val choir = groups.createGroup(
+            name = "Choir",
+            recurrence = monthly(amount = 1_000, anchor = today),
+        )
+        groups.rollForwardRecurring(today)
+
+        groups.updateGroup(
+            id = choir,
+            name = "Choir",
+            penalty = null,
+            reminderLeadDays = 2,
+            recurrence = monthly(amount = 2_000, anchor = today),
+        )
+        groups.rollForwardRecurring(today.plusMonths(1))
+
+        val amounts = groups.observeContributions().first().associate { it.dueDate to it.amount }
+        // Already-materialised periods keep what they demanded at the time; the new amount
+        // applies from the next one.
+        assertThat(amounts[today]).isEqualTo(Money(1_000))
+        assertThat(amounts[today.plusMonths(1)]).isEqualTo(Money(2_000))
+    }
+
+    @Test
+    fun creatingAScheduledGroupAsksForAnImmediateCheck() = runTest {
+        groups.createGroup(
+            name = "Choir",
+            recurrence = monthly(amount = 1_000, anchor = today),
+        )
+
+        // The first obligation should appear now, not tomorrow morning.
+        assertThat(scheduler.checks).isAtLeast(1)
+    }
+
+    // --- who gets reminded ----------------------------------------------------
+
+    @Test
+    fun dueForReminder_picksUpAnObligationOnceItsLeadWindowOpens() = runTest {
+        val choir = groups.createGroup(name = "Choir", reminderLeadDays = 4)
+        groups.addContribution(choir, Money(5_000), today.plusDays(4))
+        groups.addContribution(choir, Money(5_000), today.plusDays(30))
+
+        val due = groups.dueForReminder(today)
+
+        assertThat(due.map(Contribution::dueDate)).containsExactly(today.plusDays(4))
+    }
+
+    @Test
+    fun dueForReminder_includesAnythingAlreadyOverdue() = runTest {
         val choir = groups.createGroup(name = "Choir", reminderLeadDays = 1)
-        val id = groups.addContribution(choir, Money(5_000), today.plusDays(5))
-        val original = scheduler.scheduledAt(id)
+        groups.addContribution(choir, Money(5_000), today.minusDays(9))
 
-        groups.updateContribution(id, Money(5_000), today.plusDays(20), note = null)
+        val due = groups.dueForReminder(today)
 
-        assertThat(scheduler.scheduledAt(id)).isNotEqualTo(original)
+        // The daily nag that exists because the fine grows while it is ignored.
+        assertThat(due.map(Contribution::dueDate)).containsExactly(today.minusDays(9))
     }
 
     @Test
-    fun updateGroup_rearmsRemindersWhenTheLeadTimeChanges() = runTest {
-        val choir = groups.createGroup(name = "Choir", reminderLeadDays = 1)
-        val id = groups.addContribution(choir, Money(5_000), today.plusDays(10))
-        val original = scheduler.scheduledAt(id)
+    fun dueForReminder_leavesSettledObligationsAlone() = runTest {
+        val choir = groups.createGroup(name = "Choir", reminderLeadDays = 4)
+        val paid = groups.addContribution(choir, Money(5_000), today.plusDays(2))
+        val missed = groups.addContribution(choir, Money(5_000), today.minusDays(2))
+        groups.markPaid(paid)
+        groups.markMissed(missed)
 
-        groups.updateGroup(choir, "Choir", penalty = null, reminderLeadDays = 7)
+        assertThat(groups.dueForReminder(today)).isEmpty()
+    }
 
-        // A lead time that only applied to future obligations would silently not work.
-        assertThat(scheduler.scheduledAt(id)).isNotEqualTo(original)
+    @Test
+    fun dueForReminder_listsEachObligationOnce() = runTest {
+        val choir = groups.createGroup(name = "Choir", reminderLeadDays = 7)
+        groups.addContribution(choir, Money(5_000), today.minusDays(1))
+
+        // Overdue *and* inside the lead window; it must not be notified about twice.
+        assertThat(groups.dueForReminder(today)).hasSize(1)
+    }
+
+    // --- the fine (FR4.4) -----------------------------------------------------
+
+    @Test
+    fun aMissedDeadlineAddsTheFineToWhatIsOwed() = runTest {
+        val choir = groups.createGroup(name = "Choir", penalty = Money(1_000))
+        groups.addContribution(choir, Money(1_000), today.minusDays(1))
+
+        val contribution = groups.observeContributions().first().single()
+
+        assertThat(contribution.fineIncurred(today)).isEqualTo(Money(1_000))
+        assertThat(contribution.owedOn(today)).isEqualTo(Money(2_000))
+    }
+
+    @Test
+    fun noFineAppliesBeforeTheDeadlinePasses() = runTest {
+        val choir = groups.createGroup(name = "Choir", penalty = Money(1_000))
+        groups.addContribution(choir, Money(1_000), today.plusDays(1))
+
+        val contribution = groups.observeContributions().first().single()
+
+        assertThat(contribution.fineIncurred(today)).isNull()
+        assertThat(contribution.owedOn(today)).isEqualTo(Money(1_000))
+    }
+
+    @Test
+    fun noFineAppliesToAGroupThatDoesNotChargeOne() = runTest {
+        val choir = groups.createGroup(name = "Choir", penalty = null)
+        groups.addContribution(choir, Money(1_000), today.minusDays(5))
+
+        assertThat(groups.observeContributions().first().single().fineIncurred(today)).isNull()
     }
 
     // --- settling (FR4.5) -----------------------------------------------------
@@ -120,7 +279,7 @@ class GroupRepositoryTest {
             assertThat(categoryId).isNull()
         }
         assertThat(groups.observeContributions().first().filter { it.isOutstanding }).isEmpty()
-        assertThat(scheduler.cancelled).contains(id)
+        assertThat(scheduler.dismissed).contains(id)
     }
 
     @Test
@@ -136,6 +295,19 @@ class GroupRepositoryTest {
     }
 
     @Test
+    fun markPaid_recordsTheContributionOnlyNotTheFine() = runTest {
+        val choir = groups.createGroup(name = "Choir", penalty = Money(1_000))
+        val id = groups.addContribution(choir, Money(1_000), today.minusDays(3))
+
+        groups.markPaid(id, paidOn = today)
+
+        // Whether the fine was actually charged is the user's to say, so it is surfaced
+        // but never auto-recorded as money spent (ADR-0029).
+        assertThat(database.transactionDao().observeRows().first().single().amountXaf)
+            .isEqualTo(1_000L)
+    }
+
+    @Test
     fun markMissed_writesNoTransactionBecauseNothingMoved() = runTest {
         val choir = groups.createGroup(name = "Choir")
         val id = groups.addContribution(choir, Money(5_000), today)
@@ -145,7 +317,7 @@ class GroupRepositoryTest {
         assertThat(database.transactionDao().observeRows().first()).isEmpty()
         assertThat(database.groupContributionDao().byId(id)!!.status)
             .isEqualTo(ContributionStatus.MISSED)
-        assertThat(scheduler.cancelled).contains(id)
+        assertThat(scheduler.dismissed).contains(id)
     }
 
     @Test
@@ -177,7 +349,6 @@ class GroupRepositoryTest {
         val id = groups.addContribution(choir, Money(5_000), today.plusDays(2))
         groups.markPaid(id)
         val payment = database.transactionDao().observeRows().first().single().id
-        scheduler.reset()
 
         transactions.deleteEntries(setOf(payment))
 
@@ -185,7 +356,6 @@ class GroupRepositoryTest {
         val contribution = groups.contribution(id)!!
         assertThat(contribution.status).isEqualTo(ContributionStatus.PENDING)
         assertThat(contribution.paidDate).isNull()
-        assertThat(scheduler.scheduledAt(id)).isNotNull()
     }
 
     @Test
@@ -223,14 +393,14 @@ class GroupRepositoryTest {
     }
 
     @Test
-    fun deleteContribution_cancelsItsReminder() = runTest {
+    fun deleteContribution_takesDownItsNotification() = runTest {
         val choir = groups.createGroup(name = "Choir")
         val id = groups.addContribution(choir, Money(5_000), today.plusDays(2))
 
         groups.deleteContribution(id)
 
         assertThat(groups.contribution(id)).isNull()
-        assertThat(scheduler.cancelled).contains(id)
+        assertThat(scheduler.dismissed).contains(id)
     }
 
     // --- what I owe (FR4.6) ---------------------------------------------------
@@ -247,6 +417,21 @@ class GroupRepositoryTest {
     }
 
     @Test
+    fun aGroupRoundTripsItsSchedule() = runTest {
+        val schedule = monthly(amount = 1_000, anchor = LocalDate.of(2026, 9, 26))
+        groups.createGroup(name = "Choir", recurrence = schedule)
+
+        assertThat(groups.observeGroups().first().single().recurrence).isEqualTo(schedule)
+    }
+
+    @Test
+    fun aGroupWithNoScheduleHasNoRecurrence() = runTest {
+        groups.createGroup(name = "Ad hoc charity")
+
+        assertThat(groups.observeGroups().first().single().recurrence).isNull()
+    }
+
+    @Test
     fun overdueIsRelativeToTheDayBeingAskedAbout() = runTest {
         val choir = groups.createGroup(name = "Choir")
         groups.addContribution(choir, Money(5_000), today.minusDays(1))
@@ -259,24 +444,25 @@ class GroupRepositoryTest {
 
     // --- helpers --------------------------------------------------------------
 
-    private class RecordingScheduler : ReminderScheduler {
-        private val scheduled = mutableMapOf<Long, Instant>()
-        val cancelled = mutableListOf<Long>()
+    private fun monthly(amount: Long, anchor: LocalDate) = RecurrenceSchedule(
+        unit = RecurrenceUnit.MONTHLY,
+        amount = Money(amount),
+        anchor = anchor,
+    )
 
-        override fun schedule(contributionId: Long, at: Instant) {
-            scheduled[contributionId] = at
+    private class RecordingScheduler : ObligationScheduler {
+        val dismissed = mutableListOf<Long>()
+        var checks = 0
+            private set
+
+        override fun ensureDailyCheck() = Unit
+
+        override fun checkNow() {
+            checks++
         }
 
-        override fun cancel(contributionId: Long) {
-            cancelled += contributionId
-            scheduled -= contributionId
-        }
-
-        fun scheduledAt(contributionId: Long): Instant? = scheduled[contributionId]
-
-        fun reset() {
-            scheduled.clear()
-            cancelled.clear()
+        override fun dismiss(contributionId: Long) {
+            dismissed += contributionId
         }
     }
 }

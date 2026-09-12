@@ -88,6 +88,28 @@ interface GroupContributionDao {
     suspend fun rowById(id: Long): ContributionRow?
 
     /**
+     * Whether this group already has an obligation for that deadline.
+     *
+     * How the recurrence roll-forward stays idempotent: the daily worker recomputes every
+     * deadline a schedule has reached and creates only the missing ones, so running twice
+     * — or catching up after a week with the app closed — cannot duplicate anything.
+     * `(groupId, dueDate)` is the period's identity; no extra column needed (ADR-0029).
+     */
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM group_contributions " +
+            "WHERE groupId = :groupId AND dueDate = :dueDate)",
+    )
+    suspend fun existsFor(groupId: Long, dueDate: LocalDate): Boolean
+
+    /** Still unpaid with the deadline behind us — the fine is running (FR4.4). */
+    @Query("$CONTRIBUTION_COLUMNS WHERE c.status = 'PENDING' AND c.dueDate < :today")
+    suspend fun overdue(today: LocalDate): List<ContributionRow>
+
+    /** Unpaid and falling due on exactly this day — the lead-time warning. */
+    @Query("$CONTRIBUTION_COLUMNS WHERE c.status = 'PENDING' AND c.dueDate = :dueDate")
+    suspend fun pendingDueOn(dueDate: LocalDate): List<ContributionRow>
+
+    /**
      * The contributions settled by any of these transactions. Used before deleting a
      * transaction, so a contribution cannot stay marked Paid once the payment that
      * settled it is gone — see ADR-0026.

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sabimoni.core.data.model.Contribution
 import com.sabimoni.core.data.model.GroupSummary
 import com.sabimoni.core.data.model.MoneyGroup
+import com.sabimoni.core.data.model.RecurrenceSchedule
 import com.sabimoni.core.data.repository.GroupRepository
 import com.sabimoni.core.money.Money
 import com.sabimoni.core.money.sum
@@ -63,7 +64,9 @@ class GroupsViewModel @Inject constructor(
                         val owed = byGroup[group.id].orEmpty().filter(Contribution::isOutstanding)
                         GroupSummary(
                             group = group,
-                            outstanding = owed.map(Contribution::amount).sum(),
+                            // Fines count: once a deadline passes unpaid the amount to
+                            // find is the contribution plus the penalty (ADR-0029).
+                            outstanding = owed.map { it.owedOn(today) }.sum(),
                             dueCount = owed.size,
                             nextDueDate = owed.minOfOrNull(Contribution::dueDate),
                         )
@@ -73,7 +76,7 @@ class GroupsViewModel @Inject constructor(
                         .sortedBy(Contribution::dueDate),
                     totalOutstanding = contributions
                         .filter(Contribution::isOutstanding)
-                        .map(Contribution::amount)
+                        .map { it.owedOn(today) }
                         .sum(),
                     historyByGroup = byGroup,
                 )
@@ -94,6 +97,7 @@ class GroupsViewModel @Inject constructor(
                     name = edit.name,
                     penalty = edit.penalty,
                     reminderLeadDays = edit.reminderLeadDays,
+                    recurrence = edit.recurrence,
                 )
             } else {
                 repository.updateGroup(
@@ -101,6 +105,7 @@ class GroupsViewModel @Inject constructor(
                     name = edit.name,
                     penalty = edit.penalty,
                     reminderLeadDays = edit.reminderLeadDays,
+                    recurrence = edit.recurrence,
                 )
             }
         }
@@ -158,6 +163,8 @@ data class GroupEdit(
     val name: String,
     val penalty: Money?,
     val reminderLeadDays: Int,
+    /** Null when this group is not on a schedule — see ADR-0029. */
+    val recurrence: RecurrenceSchedule? = null,
 )
 
 /** What the contribution dialog collects. A null [id] means a new obligation. */

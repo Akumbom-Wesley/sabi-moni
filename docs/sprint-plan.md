@@ -9,8 +9,8 @@ The spec gives an ordering, not a plan. This file is the plan: what each sprint
 delivers, what "done" means, and what is deliberately not in it yet. Update the status
 table and tick the boxes as work lands — this is the file that answers "what's next".
 
-**State as of:** 2026-09-11 · groups and reminders landed, database at version 4, running
-on the Pixel 6 daily driver, Gemini key stored.
+**State as of:** 2026-09-11 · groups, recurring contributions and reminders landed,
+database at version 5, running on the Pixel 6 daily driver, Gemini key stored.
 
 ---
 
@@ -233,7 +233,15 @@ in Settings, on the DataStore that already existed.
       removed outright — nothing read it, and it was a mandatory choice that changed
       nothing (ADR-0028)
 - [x] Contribution create, edit and delete (group, amount, due date, note) (FR4.2)
-- [x] `ReminderWorker` + `ReminderScheduler`, fired `reminderLeadDays` before the due date
+- [x] **Recurring contributions (ADR-0029).** A group can carry a standing commitment —
+      amount plus weekly/fortnightly/monthly/quarterly — configured once. The app
+      materialises each period, warns once when the lead window opens, and nags daily with
+      the fine named once a deadline passes unpaid
+- [x] One daily `ObligationWorker` replaces every per-contribution alarm: next month's
+      obligation does not exist when you press Save, so there is nothing to arm
+- [x] Choosing the group is now required when logging a contribution — it used to
+      pre-select whichever group sorted first
+- [x] `ObligationWorker`, fired `reminderLeadDays` before the due date
       at 09:00 local, with the penalty in the body (FR4.3–4.4)
 - [x] The reminder re-reads the contribution when it fires, so a settled obligation does
       not notify
@@ -256,7 +264,9 @@ in Settings, on the DataStore that already existed.
       `user_version = 4`, with `transactions.groupId` present, `money_groups.type` gone,
       and the existing group intact
 - [x] Both flavors build; 31 JVM tests still pass
-- [ ] Run the instrumented tests — `GroupRepositoryTest` (14) is new, ~45 in total, on an
+- [x] 40 JVM tests passing, 9 of them the recurrence arithmetic — the first tricky logic
+      here that runs without a device
+- [ ] Run the instrumented tests — `GroupRepositoryTest` is now 27, ~58 in total, on an
       emulator rather than the daily driver
 - [ ] On-device acceptance run
 
@@ -278,6 +288,14 @@ foreclosed.
 reminder schedule and the `reminders` table is only a log of what fired; reminders land at
 09:00 because paying is a daytime errand, unlike capture; and deleting a payment puts its
 obligation back, because "what I owe" is the one screen that must not lie.
+
+[ADR-0029](adr/0029-recurring-contributions.md): a standing commitment lives on the group
+and the app materialises each period from it, so "at least 1000 every month" is configured
+once. That broke ADR-0026's per-contribution alarms — next month's obligation does not
+exist when you press Save — so one daily worker now rolls schedules forward and decides
+what to notify about: once when the lead window opens, then daily with the fine named once
+a deadline passes unpaid. The fine is derived from the dates, counted in what is owed, and
+deliberately *not* auto-recorded as a payment the user may never have made.
 
 ---
 

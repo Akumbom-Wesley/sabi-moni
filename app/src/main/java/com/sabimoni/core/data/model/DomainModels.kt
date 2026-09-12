@@ -4,6 +4,7 @@ import com.sabimoni.core.data.entity.ContributionStatus
 import com.sabimoni.core.data.entity.Direction
 import com.sabimoni.core.data.entity.MessageSource
 import com.sabimoni.core.data.entity.ParseStatus
+import com.sabimoni.core.data.entity.RecurrenceUnit
 import com.sabimoni.core.money.Money
 import java.time.Instant
 import java.time.LocalDate
@@ -97,11 +98,27 @@ data class EditorOptions(
     val groups: List<MoneyGroup> = emptyList(),
 )
 
+/**
+ * A standing commitment: "at least 1000 every month, from the 26th".
+ *
+ * All three parts are required together — an amount with no frequency, or a frequency with
+ * no anchor, cannot produce a deadline — which is why they travel as one object rather than
+ * three nullable fields on the group (ADR-0029).
+ */
+data class RecurrenceSchedule(
+    val unit: RecurrenceUnit,
+    val amount: Money,
+    /** The first deadline; later ones are derived by advancing from here. */
+    val anchor: LocalDate,
+)
+
 data class MoneyGroup(
     val id: Long,
     val name: String,
     val penalty: Money?,
     val reminderLeadDays: Int,
+    /** Null for a group whose demands are announced ad hoc rather than on a schedule. */
+    val recurrence: RecurrenceSchedule? = null,
 )
 
 /**
@@ -130,6 +147,19 @@ data class Contribution(
 
     /** Negative once the due date has passed. */
     fun daysUntilDue(today: LocalDate): Long = ChronoUnit.DAYS.between(today, dueDate)
+
+    /**
+     * The fine now running, because the deadline passed with this unpaid (FR4.4).
+     *
+     * Derived from the dates rather than stored: `paidDate > dueDate` already records
+     * whether a fine was incurred, so a second field would be a copy that could disagree
+     * (ADR-0020).
+     */
+    fun fineIncurred(today: LocalDate): Money? =
+        penalty?.takeIf { !it.isZero && isOverdue(today) }
+
+    /** What settling it costs today — the contribution plus any fine already run up. */
+    fun owedOn(today: LocalDate): Money = amount + (fineIncurred(today) ?: Money.ZERO)
 }
 
 /** A group with what it currently owes, for the group list and FR4.6. */

@@ -6,6 +6,7 @@ import com.sabimoni.core.data.entity.Direction
 import com.sabimoni.core.data.entity.MessageSource
 import com.sabimoni.core.data.entity.MoneySource
 import com.sabimoni.core.data.entity.ParseStatus
+import com.sabimoni.core.data.entity.RecurrenceUnit
 import java.time.Instant
 import java.time.LocalDate
 
@@ -46,6 +47,13 @@ class Converters {
 
     @TypeConverter
     fun nameToMoneySource(value: String): MoneySource = MoneySource.valueOf(value)
+
+    @TypeConverter
+    fun recurrenceUnitToName(value: RecurrenceUnit?): String? = value?.name
+
+    @TypeConverter
+    fun nameToRecurrenceUnit(value: String?): RecurrenceUnit? =
+        value?.let(RecurrenceUnit::valueOf)
 
     @TypeConverter
     fun contributionStatusToName(value: ContributionStatus): String = value.name

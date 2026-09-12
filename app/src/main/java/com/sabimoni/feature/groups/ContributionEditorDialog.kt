@@ -49,8 +49,11 @@ fun ContributionEditorDialog(
     onSave: (ContributionEdit) -> Unit,
     onDelete: (() -> Unit)? = null,
 ) {
+    // Deliberately not pre-selected for a new contribution. Defaulting to the first group
+    // meant filling in an amount and a date and logging it against whichever group happened
+    // to sort first — a wrong obligation is worse than one more tap.
     var groupId by rememberSaveable(contribution?.id) {
-        mutableStateOf(contribution?.groupId ?: groups.firstOrNull()?.id ?: NO_GROUP)
+        mutableStateOf(contribution?.groupId ?: NO_GROUP)
     }
     var amountText by rememberSaveable(contribution?.id) {
         mutableStateOf(contribution?.amount?.format(withCurrency = false).orEmpty())
@@ -82,6 +85,7 @@ fun ContributionEditorDialog(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 } else {
+                    Text("Contributing to", style = MaterialTheme.typography.labelMedium)
                     GroupPicker(
                         groups = groups,
                         selectedId = groupId,

@@ -22,6 +22,14 @@ interface GroupDao {
     @Query("SELECT * FROM money_groups WHERE isArchived = 0 ORDER BY name ASC")
     suspend fun active(): List<GroupEntity>
 
+    /** Groups with a standing commitment, for the daily roll-forward (ADR-0029). */
+    @Query(
+        "SELECT * FROM money_groups " +
+            "WHERE isArchived = 0 AND recurrenceUnit IS NOT NULL " +
+            "AND recurrenceAmountXaf IS NOT NULL AND recurrenceAnchor IS NOT NULL",
+    )
+    suspend fun recurring(): List<GroupEntity>
+
     @Query("SELECT * FROM money_groups WHERE id = :id")
     suspend fun byId(id: Long): GroupEntity?
 
