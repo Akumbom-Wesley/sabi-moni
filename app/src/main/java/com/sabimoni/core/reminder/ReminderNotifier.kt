@@ -68,19 +68,35 @@ class ReminderNotifier @Inject constructor(
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
+    /**
+     * Before the deadline the penalty is a warning; after it, it is a bill. The overdue
+     * wording says what is owed *now* rather than repeating the original amount, because
+     * that is the number the user has to find (FR4.4, ADR-0029).
+     */
     private fun body(contribution: Contribution, today: LocalDate): String {
         val days = contribution.daysUntilDue(today)
-        val timing = when {
-            days < 0L -> "overdue by ${-days} ${plural(-days, "day")}"
-            days == 0L -> "due today"
-            days == 1L -> "due tomorrow"
+        val fine = contribution.fineIncurred(today)
+
+        if (days < 0L) {
+            val late = "overdue by ${-days} ${plural(-days, "day")}"
+            return if (fine == null) {
+                late
+            } else {
+                "$late · fine of ${fine.format()} applies · " +
+                    "${contribution.owedOn(today).format()} to settle"
+            }
+        }
+
+        val timing = when (days) {
+            0L -> "due today"
+            1L -> "due tomorrow"
             else -> "due in $days days"
         }
-        val penalty = contribution.penalty
+        val warning = contribution.penalty
             ?.takeIf { !it.isZero }
             ?.let { " · missing it costs ${it.format()}" }
             .orEmpty()
-        return timing + penalty
+        return timing + warning
     }
 
     private fun plural(count: Long, word: String) = if (count == 1L) word else "${word}s"

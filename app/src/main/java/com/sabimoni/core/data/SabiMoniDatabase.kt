@@ -29,7 +29,7 @@ import com.sabimoni.core.data.entity.TransactionEntity
         SavingsGoalEntity::class,
         ReminderEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
     /**
      * Both of these recreate a table and copy every row, because SQLite can neither add a
@@ -38,6 +38,8 @@ import com.sabimoni.core.data.entity.TransactionEntity
      * recreation against a database holding real money would be the riskier option.
      *
      * - **v1 → v2** adds `transactions.groupId` (ADR-0025).
+     * - **v4 → v5** adds the three recurrence columns to `money_groups` (ADR-0029). A pure
+     *   addition with no foreign key, so this one is a plain `ALTER TABLE`.
      * - **v3 → v4** drops `money_groups.type` (ADR-0028), declared via [DropGroupType]
      *   because Room will not assume a vanished column was meant to go.
      *
@@ -49,6 +51,7 @@ import com.sabimoni.core.data.entity.TransactionEntity
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 3, to = 4, spec = DropGroupType::class),
+        AutoMigration(from = 4, to = 5),
     ],
 )
 @TypeConverters(Converters::class)

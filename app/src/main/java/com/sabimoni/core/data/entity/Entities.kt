@@ -34,6 +34,23 @@ data class GroupEntity(
     val penaltyXaf: Long? = null,
     val reminderLeadDays: Int = 2,
     val isArchived: Boolean = false,
+    /**
+     * How often this group expects a contribution, or null for a group whose demands are
+     * announced ad hoc.
+     *
+     * The three recurrence columns are set together or not at all — see ADR-0029. A
+     * schedule is configured once and the app materialises each period's obligation from
+     * it, so the user never re-enters a standing commitment.
+     */
+    val recurrenceUnit: RecurrenceUnit? = null,
+    /** What each period demands. "At least 1000 every month" is this plus [recurrenceUnit]. */
+    val recurrenceAmountXaf: Long? = null,
+    /**
+     * The first deadline. Every later one is derived by advancing from here, so a schedule
+     * anchored on the 31st keeps returning to the 31st rather than drifting earlier each
+     * short month.
+     */
+    val recurrenceAnchor: LocalDate? = null,
 )
 
 @Entity(

@@ -1,6 +1,8 @@
 # ADR-0026: The contribution lifecycle and its reminders
 
-- **Status:** Accepted
+- **Status:** Accepted — the per-contribution reminder scheduling here is superseded by
+  [ADR-0029](0029-recurring-contributions.md), which replaces it with one daily check.
+  Everything else stands.
 - **Date:** 2026-09-11
 - **Builds on:** [ADR-0025](0025-how-a-transaction-references-a-group.md) (the group
   reference), [ADR-0015](0015-offline-capture-parse-queue.md) and

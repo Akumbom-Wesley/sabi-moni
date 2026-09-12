@@ -1,9 +1,8 @@
 package com.sabimoni.core.data.repository
 
 import com.sabimoni.core.data.SabiMoniDatabase
-import com.sabimoni.core.reminder.ReminderScheduler
+import com.sabimoni.core.reminder.ObligationScheduler
 import java.time.Clock
-import java.time.Instant
 
 /**
  * Wiring shared by the repository tests. The repositories take a lot of DAOs, and three
@@ -11,13 +10,13 @@ import java.time.Instant
  */
 internal fun SabiMoniDatabase.groupRepository(
     clock: Clock,
-    reminderScheduler: ReminderScheduler = NoOpReminderScheduler,
+    obligations: ObligationScheduler = NoOpObligationScheduler,
 ) = GroupRepository(
     database = this,
     groupDao = groupDao(),
     contributionDao = groupContributionDao(),
     transactionDao = transactionDao(),
-    reminderScheduler = reminderScheduler,
+    obligations = obligations,
     clock = clock,
 )
 
@@ -35,9 +34,11 @@ internal fun SabiMoniDatabase.transactionRepository(
     clock = clock,
 )
 
-/** For tests that never touch obligations, so reminders have nowhere to go. */
-internal object NoOpReminderScheduler : ReminderScheduler {
-    override fun schedule(contributionId: Long, at: Instant) = Unit
+/** Reminders have nowhere to go in a test; the daily check is asserted where it matters. */
+internal object NoOpObligationScheduler : ObligationScheduler {
+    override fun ensureDailyCheck() = Unit
 
-    override fun cancel(contributionId: Long) = Unit
+    override fun checkNow() = Unit
+
+    override fun dismiss(contributionId: Long) = Unit
 }
