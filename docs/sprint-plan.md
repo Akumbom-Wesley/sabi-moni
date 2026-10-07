@@ -22,8 +22,8 @@ database at version 5, running on the Pixel 6 daily driver, Gemini key stored.
 | 1 | Close the capture loop | FR1.3, FR2.1–2.6 | ✅ Done |
 | 2 | Make the day usable | FR1.4, FR1.5, FR1.6 | ✅ Done (FR1.4 completed in Sprint 3) |
 | 3 | Groups | FR4.1–4.6 | ✅ Done (tests unrun) |
-| 4 | Reports | FR5.1–5.4 | ▶ **Next** |
-| 5 | Savings | FR6.1–6.3 | Not started |
+| 4 | Reports | FR5.1–5.4 | ✅ Done (device-unverified) |
+| 5 | Savings | FR6.1–6.3 | ▶ **Next** |
 | 6 | MoMo SMS auto-detect | FR3.1–3.3 | Not started |
 | 7 | App lock and hardening | FR7.1–7.2 | Not started |
 
@@ -312,9 +312,20 @@ The DAO layer is already done here: `observeSpendByCategory`, `observeTotal` and
 
 ### Tasks
 
-- [ ] Range selector and `ReportsViewModel` over the existing queries
-- [ ] Charting — `vico` is already in the version catalog but is not yet a dependency
-- [ ] Drill-down from any figure to its transaction list
+- [x] Range selector and `ReportsViewModel` over the existing queries — period plus an
+      integer offset, so stepping months is arithmetic (ADR-0030)
+- [x] Two queries the plan assumed existed but did not: `observeSpendByGroup` for the
+      by-group half of FR5.1, and `observeRowsInRange` for the drill-down
+- [x] Breakdowns as ranked bars drawn in Compose. **`vico` deliberately not added** —
+      the question is a comparison of lengths, which a bar answers better than a pie
+      and without a dependency. See ADR-0030; the catalog entry stays for later.
+- [x] Drill-down from any figure to its transaction list, filtered from the same read
+      so a number and the entries under it cannot disagree
+
+### Not verified
+
+Built and unit-tested (14 new tests on the range logic), but **never run on a device**.
+No screenshot, no real data behind it.
 
 ---
 
