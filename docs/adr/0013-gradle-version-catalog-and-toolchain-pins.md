@@ -49,9 +49,9 @@ this verified set:
 
 | Component | Version | Why this one |
 |---|---|---|
-| Gradle | 9.7.1 | Current stable; above AGP 9.4's floor |
-| AGP | 9.4.0 | Current stable, paired with a same-generation Gradle |
-| Kotlin | 2.2.10 | **Dictated by AGP 9.4.0's built-in Kotlin**, not chosen |
+| Gradle | 9.7.1 | Current stable; above AGP's floor |
+| AGP | 9.1.0 | **Capped by the installed Android Studio** — see [ADR-0031](0031-the-ide-caps-agp.md) |
+| Kotlin | 2.2.10 | **Dictated by AGP's built-in Kotlin**, not chosen |
 | KSP | 2.2.10-2.0.2 | The KSP release built against Kotlin 2.2.10 |
 | Compose BOM | 2026.08.00 | BOM manages all `androidx.compose.*` versions together |
 | JDK | 21 | Android Studio's bundled JBR; no separate JDK install |

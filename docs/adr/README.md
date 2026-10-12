@@ -46,3 +46,4 @@ not the decision — that's visible in the code — but the *reasoning* and the
 | [0028](0028-groups-have-no-type.md) | Groups have no type | Accepted |
 | [0029](0029-recurring-contributions.md) | Recurring contributions, and one daily check instead of many alarms | Accepted |
 | [0030](0030-reports-are-a-mirror-not-a-chart-library.md) | Reports are a mirror, and bars beat a chart library | Accepted |
+| [0031](0031-the-ide-caps-agp.md) | The IDE caps AGP, so AGP is pinned to what Studio supports | Accepted |

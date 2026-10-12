@@ -1,5 +1,9 @@
 [versions]
-agp = "9.4.0"
+# Capped by Android Studio, not by anything in the build: the installed IDE refuses to
+# sync a project above AGP 9.1.0. Conveniently, 9.1.0 bundles the same KGP 2.2.10 as
+# 9.4.0 did, so the Kotlin and KSP pins below are unaffected. Raise this only alongside
+# a Studio upgrade — see ADR-0013.
+agp = "9.1.0"
 # Kotlin is not a free choice: AGP 9.4.0 ships built-in Kotlin support backed by
 # KGP 2.2.10, so the Compose and serialization plugins must match that exactly.
 kotlin = "2.2.10"
