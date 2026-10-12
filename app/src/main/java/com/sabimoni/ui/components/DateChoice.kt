@@ -77,9 +77,10 @@ private fun DateChip(label: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
+/** Also used directly by the reports screen, which picks two dates rather than one. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DateChooserDialog(
+internal fun DateChooserDialog(
     initial: LocalDate,
     onDismiss: () -> Unit,
     onPick: (LocalDate) -> Unit,

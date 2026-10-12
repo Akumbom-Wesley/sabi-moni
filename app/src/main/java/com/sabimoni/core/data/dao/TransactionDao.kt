@@ -17,6 +17,13 @@ data class CategoryTotal(
     val totalXaf: Long,
 )
 
+/** Spend attributed to one group over a range — the by-group half of FR5.1. */
+data class GroupTotal(
+    val groupId: Long,
+    val groupName: String,
+    val totalXaf: Long,
+)
+
 /**
  * One logged entry joined to its category name — the shape the capture thread and the
  * editor both need. `messageId` is null for a manually entered row (FR1.6), which is what
@@ -165,4 +172,62 @@ interface TransactionDao {
         """,
     )
     fun observeSpendByCategory(from: LocalDate, to: LocalDate): Flow<List<CategoryTotal>>
+
+    /**
+     * Spend per group over a range (FR5.1).
+     *
+     * Only rows that name a group, because this answers "what did the groups cost me",
+     * not "what did everything cost me" — the category breakdown already covers the
+     * latter, and an "ungrouped" bucket here would be every ordinary expense in the
+     * month dwarfing the groups it sits beside.
+     *
+     * Counts ordinary gifts as well as settled obligations: both are `groupId`, which is
+     * exactly what ADR-0025 made that column mean.
+     */
+    @Query(
+        """
+        SELECT t.groupId AS groupId,
+               g.name AS groupName,
+               COALESCE(SUM(t.amountXaf), 0) AS totalXaf
+        FROM transactions t
+        INNER JOIN money_groups g ON g.id = t.groupId
+        WHERE t.direction = 'EXPENSE' AND t.occurredOn BETWEEN :from AND :to
+        GROUP BY t.groupId
+        ORDER BY totalXaf DESC
+        """,
+    )
+    fun observeSpendByGroup(from: LocalDate, to: LocalDate): Flow<List<GroupTotal>>
+
+    /**
+     * Every entry in a range, joined to its names — what FR5.3's drill-down shows when a
+     * figure is tapped.
+     *
+     * Returned whole rather than re-queried per slice: the breakdowns and the list behind
+     * them are then views of one read, so a number and the entries under it cannot
+     * disagree. The same reasoning as `GroupContributionDao.observeAllRows`, and the range
+     * bounds it to what one person logged in a period.
+     */
+    @Query(
+        """
+        SELECT t.id AS id,
+               t.messageId AS messageId,
+               t.occurredOn AS occurredOn,
+               t.amountXaf AS amountXaf,
+               t.direction AS direction,
+               t.categoryId AS categoryId,
+               c.name AS categoryName,
+               t.groupId AS groupId,
+               g.name AS groupName,
+               t.groupContributionId AS groupContributionId,
+               t.note AS note,
+               t.autoDetected AS autoDetected,
+               t.createdAt AS createdAt
+        FROM transactions t
+        LEFT JOIN categories c ON c.id = t.categoryId
+        LEFT JOIN money_groups g ON g.id = t.groupId
+        WHERE t.occurredOn BETWEEN :from AND :to
+        ORDER BY t.occurredOn DESC, t.createdAt DESC
+        """,
+    )
+    fun observeRowsInRange(from: LocalDate, to: LocalDate): Flow<List<TransactionRow>>
 }

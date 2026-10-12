@@ -99,7 +99,8 @@ private fun MessageEntity.toDomain(rows: List<TransactionRow>) = CapturedMessage
     lineItems = rows.map(TransactionRow::toDomain),
 )
 
-private fun TransactionRow.toDomain() = LoggedEntry(
+/** Shared with [ReportRepository], so the thread and the reports agree on a row's shape. */
+internal fun TransactionRow.toDomain() = LoggedEntry(
     id = id,
     amount = Money(amountXaf),
     direction = direction,
